@@ -32,11 +32,15 @@ MESS1:          fcc "Ingrese el valor de cant (Entre 1 y 99)"
 MESS2:          fcc "Cantidad de valores encontrados %i"
                 db CR,LF,FIN
 MESS3:          fcc "Entero: "
-
+                db FIN
+MESS4:          db CR,LF
+		fcc "La cantidad ingresada es: %i"
+                db CR,LF,FIN
+                
                 org $1020
 DATOS:          db 4,9,18,4,27,63,12,32,36,15
                 org $1040
-CUAD:		db 1,4,9,16,25,36,49,64,81,100,121,144,169,196,225
+CUAD:           db 1,4,9,16,25,36,49,64,81,100,121,144,169,196,225
                 org $1100
 ENTERO:         ds 100
 
@@ -62,28 +66,35 @@ Leer_Cant:      ldaa #1
                 psha
                 deca
                 staa CANT
+                staa CONT
                 ldx #$0000
-Loop1`          ldaa #48
-Loop2`          jsr [GETCHAR,X]
-                cba
-                blt Loop2`              ;El numero es menor que 0
+Loop`           jsr [GETCHAR,X]
+                ldaa #48
+		cba
+                bgt Loop`              ;El numero es menor que 0
                 ldaa #57
-                jsr [GETCHAR,X]
-                bgt Loop2`              ;El numero es mayor que 9
-                ldaa #0                 ;Se carga 0 en A para que D==B
+                cba
+		blt Loop`              ;El numero es mayor que 9
                 jsr [PUTCHAR,X]
+                subb #48
                 pula
                 dbne A,SaveRES`           ;si no es 1 hace branch
                 ldaa #10
                 psha                    ;Guarda un numero diferente de 1 en el stack
                 mul
-                stab CONT
-                bra Loop1`
-SaveRES`        addb CONT
+                stab CANT
+                bra Loop`
+SaveRES`        addb CANT
                 ldaa #0
                 cba
-                beq Leer_Cant           ;En caso de que se introduzcan dos 0s
+		beq Leer_Cant           ;En caso de que se introduzcan dos 0s
+                stab CANT
+                pshd
+                ldab #LF
                 jsr [PUTCHAR,X]
+		ldd #MESS4
+                jsr [PRINTF,X]
+                leas 2,SP
                 rts
 
 
