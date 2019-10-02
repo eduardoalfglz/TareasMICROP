@@ -1,0 +1,20 @@
+cant       1001
+cont       1002
+cr         000d
+cuad       1040
+curentero  1003
+datos      1020
+entero     1100
+fin        0000
+getchar    ee84
+leer_cant  2012
+lf         000a
+long       1000
+loop1000   201c
+loop2000   201e
+mess1      1005
+mess2      102f
+mess3      1054
+printf     ee88
+putchar    ee86
+saveres000 2041

@@ -1,0 +1,125 @@
+
+as12, an absolute assembler for Motorola MCU's, version 1.2h
+
+                        ;#################################################################
+                        ;
+                        ;
+                        ;               Tarea 3
+                        ;               Eduardo Alfaro Gonzalez
+                        ;               B50203
+                        ;               Calculo de Raices cuadradas
+                        ;               Ultima vez modificado 1/10/19
+                        ;
+                        ;
+                        ;#################################################################
+                        
+                        
+                        
+                        
+                        ;#################################################################
+                        ;               Definicion de estructuras de datos
+ee88                    PRINTF:         equ $EE88
+ee84                    GETCHAR:        equ $EE84
+ee86                    PUTCHAR:        equ $EE86
+000d                    CR:             equ $0D
+000a                    LF:             equ $0A
+0000                    FIN:            equ $0
+                        
+1000                                    org $1000
+1000 0a                 LONG:           db 10
+1001                    CANT:           ds 1
+1002                    CONT:           ds 1
+1003                    CurENTERO:      ds 2
+1005 49 6e 67 72 65 73  MESS1:          fcc "Ingrese el valor de cant (Entre 1 y 99)"
+     65 20 65 6c 20 76
+     61 6c 6f 72 20 64
+     65 20 63 61 6e 74
+     20 28 45 6e 74 72
+     65 20 31 20 79 20
+     39 39 29
+102c 0d 0a 00                           db CR,LF,FIN
+102f 43 61 6e 74 69 64  MESS2:          fcc "Cantidad de valores encontrados %i"
+     61 64 20 64 65 20
+     76 61 6c 6f 72 65
+     73 20 65 6e 63 6f
+     6e 74 72 61 64 6f
+     73 20 25 69
+1051 0d 0a 00                           db CR,LF,FIN
+1054 45 6e 74 65 72 6f  MESS3:          fcc "Entero: "
+     3a 20
+                        
+1020                                    org $1020
+1020 04 09 12 04 1b 3f  DATOS:          db 4,9,18,4,27,63,12,32,36,15
+     0c 20 24 0f
+1040                                    org $1040
+1040 01 04 09 10 19 24  CUAD:		db 1,4,9,16,25,36,49,64,81,100,121,144,169,196,225
+     31 40 51 64 79 90
+     a9 c4 e1
+1100                                    org $1100
+1100                    ENTERO:         ds 100
+                        
+                        
+                        ;#################################################################
+                        ;               Inicio de programa principal
+2000                                    org $2000
+2000 cf 3b ff                           lds #$3BFF              ;Definicion del Stack
+2003 cc 10 05                           ldd #MESS1              ;Imprimir el primer mensaje
+2006 ce 00 00                           ldx #0
+2009 15 e3 ee 88                        jsr [PRINTF,X]
+200d 16 20 12                           jsr Leer_Cant
+2010 20 fe                              bra *
+                                        
+                        
+                        
+                        
+                        
+                        
+                        ;#################################################################
+                        ;               Subrutina Leer_Cant
+2012 86 01              Leer_Cant:      ldaa #1
+2014 36                                 psha
+2015 43                                 deca
+2016 7a 10 01                           staa CANT
+2019 ce 00 00                           ldx #$0000
+201c 86 30              Loop1`                ldaa #48
+201e 15 e3 ee 84        Loop2`          jsr [GETCHAR,X]
+2022 18 17                              cba
+2024 2d f8                              blt Loop2`              ;El numero es menor que 0
+2026 86 39                              ldaa #57
+2028 15 e3 ee 84                        jsr [GETCHAR,X]
+202c 2e f0                              bgt Loop2`              ;El numero es mayor que 9
+202e 86 00                              ldaa #0                 ;Se carga 0 en A para que D==B
+2030 15 e3 ee 86                        jsr [PUTCHAR,X]
+2034 32                                 pula
+2035 04 20 09                           dbne A,SaveRES`           ;si no es 1 hace branch
+2038 86 0a                              ldaa #10
+203a 36                                 psha                    ;Guarda un numero diferente de 1 en el stack
+203b 12                                 mul
+203c 7b 10 02                           stab CONT
+203f 20 db                              bra Loop1`
+2041 fb 10 02           SaveRES`        addb CONT
+2044 86 00                              ldaa #0
+2046 18 17                              cba
+2048 27 c8                              beq Leer_Cant           ;En caso de que se introduzcan dos 0s
+204a 15 e3 ee 86                        jsr [PUTCHAR,X]
+204e 3d                                 rts
+                        
+                        
+                        ;#################################################################
+                        ;               Subrutina Bucar
+                        
+                        
+                        ;#################################################################
+                        ;               Subrutina Raiz
+                        
+                        
+                        ;#################################################################
+                        ;               Subrutina Print_Result
+                        
+                        
+                        
+                                        
+
+Executed: Tue Oct 01 22:31:55 2019
+Total cycles: 93, Total bytes: 192
+Total errors: 0, Total warnings: 0

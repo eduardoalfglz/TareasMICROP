@@ -1,0 +1,64 @@
+
+as12, an absolute assembler for Motorola MCU's, version 1.2h
+
+                        ;**************************************
+                        ;       Ordenar Array Menor a Mayor
+                        ;       Eduardo Alfaro
+                        ;       Fecha Septiembre
+                        ;       Ultima vez modificado 23/9/19
+                        ;       Tarea 2
+                        ;
+                        ;
+                        ;*************************************
+                        
+1000                                        org $1000
+1000 c8                 Cant:               db 200  ;tiempo de ensamblado
+1001                    Temp                ds $1   ;Variable para guardar J temporalmente
+                        
+                        
+1100                                        org $1100
+1100 63 75 63 08 64 07  Ordenar:            db $63,$75,$63,$8,$64,$7,$56,$29,$71,$28,$80,$7,$41,$59
+     56 29 71 28 80 07
+     41 59
+110e 08 05 59 93 71 07  		    db $8,$5,$59,$93,$71,$7,$82,$68,$58,$34,$98,$2,$35,$87
+     82 68 58 34 98 02
+     35 87
+111c 51 54 23 93 47 88  		    db $51,$54,$23,$93,$47,$88,$0,$60,$22,$64,$6,$79,$68,$15
+     00 60 22 64 06 79
+     68 15
+112a 20 17 80 38 93 80  		    db $20,$17,$80,$38,$93,$80,$27,$36,$4,$41,$31,$25,$91,$1
+     27 36 04 41 31 25
+     91 01
+1200                                        org $1200
+1200                    Ordenados:          ds 200
+                        
+                        
+1500                                        org $1500
+1500 ce 11 00           Ordenar_Ar      ldx #Ordenar
+1503 cd 12 00                           ldy #Ordenados
+1506 86 01              Loop:           ldaa #1
+1508 e6 00              LoopInt:        ldab 0,X
+150a e1 e4                              cmpb A,X
+150c 2d 18                              blt Lthan
+150e 27 10              GtEq:           beq Eq
+1510 18 0d 00 10 01                     movb 0,X,Temp           ;Si el numero es menor intercambiarlos
+1515 18 0a e4 00                        movb A,X,0,X
+1519 18 09 e4 10 01                     movb Temp,A,X
+151e 20 e8                              bra LoopInt
+1520 73 10 00           Eq:             dec Cant
+1523 08                                 inx                     ;Si son iguales mover X para saltarse el dato
+1524 20 0d                              bra ChkFin
+1526 42                 Lthan:          inca                    ;Si el numero es mayor pasar al siguiente
+1527 b1 10 00                           cmpa Cant
+152a 26 dc                              bne LoopInt
+152c 18 0a 30 70                        movb 1,X+,1,Y+          ;Mover los datos a ordenados
+1530 73 10 00                           dec Cant
+1533 c6 01              ChkFin:         ldab #1
+1535 f1 10 00                           cmpb Cant               ;Revisar si ya se pasaron todos los datos
+1538 26 cc                              bne Loop
+153a 18 0a 00 40                        movb 0,X,0,Y
+153e 20 fe              Fin:            bra Fin
+
+Executed: Tue Sep 24 00:45:31 2019
+Total cycles: 66, Total bytes: 121
+Total errors: 0, Total warnings: 0

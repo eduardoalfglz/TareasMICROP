@@ -1,0 +1,51 @@
+
+as12, an absolute assembler for Motorola MCU's, version 1.2h
+
+                        ;**************************************
+                        ;       Mover si es multiplo de 4
+                        ;       Eduardo Alfaro
+                        ;       Fecha Septiembre
+                        ;       Ultima vez modificado 23/9/19
+                        ;       Tarea 2
+                        ;
+                        ;
+                        ;*************************************
+1000                                        org $1000
+1000                    L:                  ds $1
+1001                    Cont4               ds $1
+                        
+1100                                        org $1100
+1100                    Datos               ds 255
+                        
+1200                                        org $1200
+1200                    Div4                ds 255
+                        
+                        
+                        
+1300                                        org $1300
+1300 18 0b 00 10 01     div4Prog:       movb #0,Cont4   ;Reinicio del contador
+1305 ce 11 00           		ldx #Datos
+1308 09                                 dex
+1309 cd 12 00                           ldy #Div4
+130c b6 10 00                           ldaa L
+130f c6 00                              ldab #0
+1311 66 e4              MainLoop:       ror A,X
+1313 25 06                              blo NotMul2             ;Detectar si es multiplo de 2
+1315 66 e4                              ror A,X
+1317 24 09                              bhs Mult4
+1319 65 e4              NotMul4:        rol A,X
+131b 65 e4              NotMul2:        rol A,X              ;Si no es multiplo de 4 se devuelve al numero original
+131d 04 30 f1                           dbne A, MainLoop       ; y se decrementa el contador
+1320 20 0f                              bra Fin
+1322 65 e4              Mult4:          rol A,X                 ;Si es multiplo de 4 se devuelve al numero original
+1324 65 e4                              rol A,X                 ;Se hace dos veces en el codigo porque se necesita el carry para el branch
+1326 18 0a e4 ed                        movb A,X,B,Y            ;Se mueve al arreglo de multiplos de 4
+132a 52                                 incb
+132b 72 10 01                           inc Cont4               ;Se incrementa el contador de multiplos de 4
+132e 04 30 e0                           dbne A,MainLoop
+1331 20 fe              Fin:            bra Fin
+                                        
+
+Executed: Tue Sep 24 02:13:35 2019
+Total cycles: 59, Total bytes: 51
+Total errors: 0, Total warnings: 0

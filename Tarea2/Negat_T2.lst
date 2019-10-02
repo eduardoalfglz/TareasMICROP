@@ -1,0 +1,79 @@
+
+as12, an absolute assembler for Motorola MCU's, version 1.2h
+
+                        ;**************************************
+                        ;       Aplicar mascaras y encontrar negativos
+                        ;       Eduardo Alfaro
+                        ;       Fecha Septiembre
+                        ;       Ultima vez modificado 23/9/19
+                        ;       Tarea 2
+                        ;
+                        ;
+                        ;*************************************
+1000                                        org $1000
+1000                    TempM:              ds $2
+1002                    TempN:              ds $2
+1050                                        org $1050
+1050 63 75 63 08 64 07  Datos:              db $63,$75,$63,$8,$64,$7,$56,$29,$71,$28,$80,$7,$41,$59
+     56 29 71 28 80 07
+     41 59
+105e 08 05 59 93 71 07                      db $8,$5,$59,$93,$71,$7,$82,$68,$58,$34,$98,$2,$35,$87
+     82 68 58 34 98 02
+     35 87
+106c 51 54 23 93 47 88                      db $51,$54,$23,$93,$47,$88,$0,$60,$22,$64,$6,$79,$68,$15
+     00 60 22 64 06 79
+     68 15
+107a 20 17 80 38 93 80                      db $20,$17,$80,$38,$93,$80,$27,$36,$4,$41,$31,$25,$91,$FF
+     27 36 04 41 31 25
+     91 ff
+1150                                        org $1150
+1150 08 05 59 93 71 07  Mascaras:           db $8,$5,$59,$93,$71,$7,$82,$68,$58,$34,$98,$2,$35,$87
+     82 68 58 34 98 02
+     35 87
+115e 63 75 63 08 64 07                      db $63,$75,$63,$8,$64,$7,$56,$29,$71,$28,$80,$7,$41,$59
+     56 29 71 28 80 07
+     41 59
+116c 20 17 80 38 93 80                      db $20,$17,$80,$38,$93,$80,$27,$36,$4,$41,$31,$25,$91,$30
+     27 36 04 41 31 25
+     91 30
+117a 51 54 23 93 47 88                      db $51,$54,$23,$93,$47,$88,$0,$60,$22,$64,$6,$79,$68,$FE
+     00 60 22 64 06 79
+     68 fe
+                        
+1300                                        org $1300
+1300                    Negat               ds 1000
+                        
+1100                                        org $1100
+                        
+                        
+                        
+2000                                        org $2000
+2000 cd 13 00           Negat_T2      	ldy #Negat
+2003 7d 10 02                           sty TempN      ;Esto se podria evitar usando direccionamiento indexado indirecto, no se hace por enunciado
+2006 cd 11 50                           ldy #Mascaras
+2009 ce 10 50                           ldx #Datos
+200c 86 ff              LoopIni         ldaa #$FF        ;Encontrar el ultimo valor de Datos
+200e a1 30                              cmpa 1,X+       ;En el ultimo se debe decrementar para volver al deseado
+2010 26 fa                              bne LoopIni
+2012 09                                 dex
+2013 a6 40              MainLoop:       ldaa 0,Y
+2015 a8 3f                              eora 1,X-
+2017 81 00                              cmpa #0
+2019 2c 0e                              bge chk_Fin
+201b 7d 10 00                           sty TempM        ;El numero es negativo por lo tanto se debe mover a negat
+201e fd 10 02                           ldy TempN
+2021 6a 70                              staa 1,Y+
+2023 7d 10 02                           sty TempN
+2026 fd 10 00                           ldy TempM
+2029 86 fe              chk_Fin:        ldaa #$FE
+202b a1 70                              cmpa 1,Y+
+202d 27 05                              beq Fin
+202f 8e 10 50                           cpx #Datos
+2032 26 df                              bne MainLoop
+2034 20 fe              Fin:            bra Fin
+                                        
+                                        
+
+Executed: Tue Sep 24 01:29:43 2019
+Total cycles: 57, Total bytes: 166
+Total errors: 0, Total warnings: 0
