@@ -27,14 +27,14 @@ LONG:           db 10
 CANT:           ds 1
 CONT:           ds 1
 CurENTERO:      ds 2
-MESS1:          fcc "Ingrese el valor de cant (Entre 1 y 99)"
+MESS1:          fcc "Ingrese el valor de cant Entre 1 y 99"
                 db CR,LF,FIN
 MESS2:          fcc "Cantidad de valores encontrados %i"
                 db CR,LF,FIN
 MESS3:          fcc "Entero: "
                 db FIN
 MESS4:          db CR,LF
-		fcc "La cantidad ingresada es: %i"
+                fcc "La cantidad ingresada es: %i"
                 db CR,LF,FIN
                 
                 org $1020
@@ -52,7 +52,9 @@ ENTERO:         ds 100
                 ldd #MESS1              ;Imprimir el primer mensaje
                 ldx #0
                 jsr [PRINTF,X]
-                jsr Leer_Cant
+                jsr Leer_Cant           ;Salto a Leer Cantidad
+                jsr Buscar
+
                 bra *
                 
 
@@ -70,11 +72,11 @@ Leer_Cant:      ldaa #1
                 ldx #$0000
 Loop`           jsr [GETCHAR,X]
                 ldaa #48
-		cba
+                cba
                 bgt Loop`              ;El numero es menor que 0
                 ldaa #57
                 cba
-		blt Loop`              ;El numero es mayor que 9
+                blt Loop`              ;El numero es mayor que 9
                 jsr [PUTCHAR,X]
                 subb #48
                 pula
@@ -87,12 +89,12 @@ Loop`           jsr [GETCHAR,X]
 SaveRES`        addb CANT
                 ldaa #0
                 cba
-		beq Leer_Cant           ;En caso de que se introduzcan dos 0s
+                beq Leer_Cant           ;En caso de que se introduzcan dos 0s
                 stab CANT
                 pshd
                 ldab #LF
                 jsr [PUTCHAR,X]
-		ldd #MESS4
+                ldd #MESS4
                 jsr [PRINTF,X]
                 leas 2,SP
                 rts
@@ -100,11 +102,38 @@ SaveRES`        addb CANT
 
 ;#################################################################
 ;               Subrutina Bucar
-
+Buscar:         ldaa Long
+                movw #ENTERO,CurENTERO  ;Crear contador de tabla
+Loop1`          ldx #DATOS-1
+                ldy #CUAD            ;Cuad más el numero maximo de datos
+Loop2`          ldab A,X
+                cmpb 0,Y
+                bne FindCuad`           ;Revisa si el numero está en la tabla
+                psha
+                ldaa A,X
+                psha
+                jsr RAIZ                ;Despues de respaldo en stack salta a raiz
+                pula                    ;obtiene resultado
+                ldx #0
+                staa [#CurENTERO,X]     ;Guarda el resultado
+                inc CurENTERO+1
+                pula                    ;recupera el valor de R1
+                inc CONT
+chk_FIN`	dec CANT
+                dbne A, Loop1`          ;Check si ya no hay datos
+                bra return`
+                ldab CANT               ;Check si ya logro la cantidad solicitada
+                bne Loop1`
+return`         rts
+FindCuad`       cpy #CUAD+15
+                bge chk_FIN`
+InTable`        iny
+                bra Loop2`
+                
 
 ;#################################################################
 ;               Subrutina Raiz
-
+RAIZ:           rts
 
 ;#################################################################
 ;               Subrutina Print_Result

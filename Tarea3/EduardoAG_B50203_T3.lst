@@ -30,31 +30,31 @@ ee86                    PUTCHAR:        equ $EE86
 1001                    CANT:           ds 1
 1002                    CONT:           ds 1
 1003                    CurENTERO:      ds 2
-1005 49 6e 67 72 65 73  MESS1:          fcc "Ingrese el valor de cant (Entre 1 y 99)"
+1005 49 6e 67 72 65 73  MESS1:          fcc "Ingrese el valor de cant Entre 1 y 99"
      65 20 65 6c 20 76
      61 6c 6f 72 20 64
      65 20 63 61 6e 74
-     20 28 45 6e 74 72
-     65 20 31 20 79 20
-     39 39 29
-102c 0d 0a 00                           db CR,LF,FIN
-102f 43 61 6e 74 69 64  MESS2:          fcc "Cantidad de valores encontrados %i"
+     20 45 6e 74 72 65
+     20 31 20 79 20 39
+     39
+102a 0d 0a 00                           db CR,LF,FIN
+102d 43 61 6e 74 69 64  MESS2:          fcc "Cantidad de valores encontrados %i"
      61 64 20 64 65 20
      76 61 6c 6f 72 65
      73 20 65 6e 63 6f
      6e 74 72 61 64 6f
      73 20 25 69
-1051 0d 0a 00                           db CR,LF,FIN
-1054 45 6e 74 65 72 6f  MESS3:          fcc "Entero: "
+104f 0d 0a 00                           db CR,LF,FIN
+1052 45 6e 74 65 72 6f  MESS3:          fcc "Entero: "
      3a 20
-105c 00                                 db FIN
-105d 0d 0a              MESS4:          db CR,LF
-105f 4c 61 20 63 61 6e  		fcc "La cantidad ingresada es: %i"
+105a 00                                 db FIN
+105b 0d 0a              MESS4:          db CR,LF
+105d 4c 61 20 63 61 6e                  fcc "La cantidad ingresada es: %i"
      74 69 64 61 64 20
      69 6e 67 72 65 73
      61 64 61 20 65 73
      3a 20 25 69
-107b 0d 0a 00                           db CR,LF,FIN
+1079 0d 0a 00                           db CR,LF,FIN
                                         
 1020                                    org $1020
 1020 04 09 12 04 1b 3f  DATOS:          db 4,9,18,4,27,63,12,32,36,15
@@ -74,8 +74,10 @@ ee86                    PUTCHAR:        equ $EE86
 2003 cc 10 05                           ldd #MESS1              ;Imprimir el primer mensaje
 2006 ce 00 00                           ldx #0
 2009 15 e3 ee 88                        jsr [PRINTF,X]
-200d 16 20 12                           jsr Leer_Cant
-2010 20 fe                              bra *
+200d 16 20 15                           jsr Leer_Cant           ;Salto a Leer Cantidad
+2010 16 20 62                           jsr Buscar
+                        
+2013 20 fe                              bra *
                                         
                         
                         
@@ -84,49 +86,76 @@ ee86                    PUTCHAR:        equ $EE86
                         
                         ;#################################################################
                         ;               Subrutina Leer_Cant
-2012 86 01              Leer_Cant:      ldaa #1
-2014 36                                 psha
-2015 43                                 deca
-2016 7a 10 01                           staa CANT
-2019 7a 10 02                           staa CONT
-201c ce 00 00                           ldx #$0000
-201f 15 e3 ee 84        Loop`           jsr [GETCHAR,X]
-2023 86 30                              ldaa #48
-2025 18 17              		cba
-2027 2e f6                              bgt Loop`              ;El numero es menor que 0
-2029 86 39                              ldaa #57
-202b 18 17                              cba
-202d 2d f0              		blt Loop`              ;El numero es mayor que 9
-202f 15 e3 ee 86                        jsr [PUTCHAR,X]
-2033 c0 30                              subb #48
-2035 32                                 pula
-2036 04 20 09                           dbne A,SaveRES`           ;si no es 1 hace branch
-2039 86 0a                              ldaa #10
-203b 36                                 psha                    ;Guarda un numero diferente de 1 en el stack
-203c 12                                 mul
-203d 7b 10 01                           stab CANT
-2040 20 dd                              bra Loop`
-2042 fb 10 01           SaveRES`        addb CANT
-2045 86 00                              ldaa #0
-2047 18 17                              cba
-2049 27 c7              		beq Leer_Cant           ;En caso de que se introduzcan dos 0s
-204b 7b 10 01                           stab CANT
-204e 3b                                 pshd
-204f c6 0a                              ldab #LF
-2051 15 e3 ee 86                        jsr [PUTCHAR,X]
-2055 cc 10 5d           		ldd #MESS4
-2058 15 e3 ee 88                        jsr [PRINTF,X]
-205c 1b 82                              leas 2,SP
-205e 3d                                 rts
+2015 86 01              Leer_Cant:      ldaa #1
+2017 36                                 psha
+2018 43                                 deca
+2019 7a 10 01                           staa CANT
+201c 7a 10 02                           staa CONT
+201f ce 00 00                           ldx #$0000
+2022 15 e3 ee 84        Loop`           jsr [GETCHAR,X]
+2026 86 30                              ldaa #48
+2028 18 17                              cba
+202a 2e f6                              bgt Loop`              ;El numero es menor que 0
+202c 86 39                              ldaa #57
+202e 18 17                              cba
+2030 2d f0                              blt Loop`              ;El numero es mayor que 9
+2032 15 e3 ee 86                        jsr [PUTCHAR,X]
+2036 c0 30                              subb #48
+2038 32                                 pula
+2039 04 20 09                           dbne A,SaveRES`           ;si no es 1 hace branch
+203c 86 0a                              ldaa #10
+203e 36                                 psha                    ;Guarda un numero diferente de 1 en el stack
+203f 12                                 mul
+2040 7b 10 01                           stab CANT
+2043 20 dd                              bra Loop`
+2045 fb 10 01           SaveRES`        addb CANT
+2048 86 00                              ldaa #0
+204a 18 17                              cba
+204c 27 c7                              beq Leer_Cant           ;En caso de que se introduzcan dos 0s
+204e 7b 10 01                           stab CANT
+2051 3b                                 pshd
+2052 c6 0a                              ldab #LF
+2054 15 e3 ee 86                        jsr [PUTCHAR,X]
+2058 cc 10 5b                           ldd #MESS4
+205b 15 e3 ee 88                        jsr [PRINTF,X]
+205f 1b 82                              leas 2,SP
+2061 3d                                 rts
                         
                         
                         ;#################################################################
                         ;               Subrutina Bucar
-                        
+2062 b6 10 00           Buscar:         ldaa Long
+2065 18 03 11 00 10 03                  movw #ENTERO,CurENTERO  ;Crear contador de tabla
+206b ce 10 1f           Loop1`          ldx #DATOS-1
+206e cd 10 40                           ldy #CUAD            ;Cuad más el numero maximo de datos
+2071 e6 e4              Loop2`          ldab A,X
+2073 e1 40                              cmpb 0,Y
+2075 26 24                              bne FindCuad`           ;Revisa si el numero está en la tabla
+2077 36                                 psha
+2078 a6 e4                              ldaa A,X
+207a 36                                 psha
+207b 16 20 a3                           jsr RAIZ                ;Despues de respaldo en stack salta a raiz
+207e 32                                 pula                    ;obtiene resultado
+207f ce 00 00                           ldx #0
+2082 6a e3 10 03                        staa [#CurENTERO,X]     ;Guarda el resultado
+2086 72 10 04                           inc CurENTERO+1
+2089 32                                 pula                    ;recupera el valor de R1
+208a 72 10 02                           inc CONT
+208d 73 10 01           chk_FIN`	dec CANT
+2090 04 30 d8                           dbne A, Loop1`          ;Check si ya no hay datos
+2093 20 05                              bra return`
+2095 f6 10 01                           ldab CANT               ;Check si ya logro la cantidad solicitada
+2098 26 d1                              bne Loop1`
+209a 3d                 return`         rts
+209b 8d 10 4f           FindCuad`       cpy #CUAD+15
+209e 2c ed                              bge chk_FIN`
+20a0 02                 InTable`        iny
+20a1 20 ce                              bra Loop2`
+                                        
                         
                         ;#################################################################
                         ;               Subrutina Raiz
-                        
+20a3 3d                 RAIZ:           rts
                         
                         ;#################################################################
                         ;               Subrutina Print_Result
@@ -135,6 +164,6 @@ ee86                    PUTCHAR:        equ $EE86
                         
                                         
 
-Executed: Tue Oct 01 23:54:36 2019
-Total cycles: 110, Total bytes: 242
+Executed: Wed Oct 02 00:50:58 2019
+Total cycles: 197, Total bytes: 309
 Total errors: 0, Total warnings: 0

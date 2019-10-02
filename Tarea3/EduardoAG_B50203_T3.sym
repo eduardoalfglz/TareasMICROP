@@ -1,4 +1,6 @@
-cant       1001
+buscar     2062
+cant       1001
+chk_fin000 208d
 cont       1002
 cr         000d
 cuad       1040
@@ -6,15 +8,21 @@ curentero  1003
 datos      1020
 entero     1100
 fin        0000
+findcuad000 209b
 getchar    ee84
-leer_cant  2012
+intable000 20a0
+leer_cant  2015
 lf         000a
 long       1000
-loop000    201f
+loop000    2022
+loop1000   206b
+loop2000   2071
 mess1      1005
-mess2      102f
-mess3      1054
-mess4      105d
+mess2      102d
+mess3      1052
+mess4      105b
 printf     ee88
 putchar    ee86
-saveres000 2042
+raiz       20a3
+return000  209a
+saveres000 2045
