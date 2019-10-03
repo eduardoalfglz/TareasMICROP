@@ -23,24 +23,27 @@ LF:             equ $0A
 FIN:            equ $0
 
                 org $1000
-LONG:           db 10
+LONG:           db 15
 CANT:           ds 1
 CONT:           ds 1
 CurENTERO:      ds 2    ;Posicion actual de entero para el direccionamiento de la tabla
 CalcRoot:       ds 2    ;Variable temporal para el calculo de raiz
 ResDiv:         ds 2    ;Resultado de div
+                org $1150
 MESS1:          fcc "Ingrese el valor de cant Entre 1 y 99"
                 db CR,LF,FIN
 MESS2:          fcc "Cantidad de valores encontrados %i"
-                db CR,LF,FIN
+                db CR,LF
 MESS3:          fcc "Entero: "
                 db FIN
 MESS4:          db CR,LF
                 fcc "La cantidad ingresada es: %i"
                 db CR,LF,FIN
+MESS5:          fcc "%i,"
+                db LF,FIN
                 
                 org $1020
-DATOS:          db 4,9,18,4,27,63,12,32,36,15
+DATOS:          db 4,9,18,4,27,63,12,32,36,15,144,100,56,49
                 org $1040
 CUAD:           db 1,4,9,16,25,36,49,64,81,100,121,144,169,196,225
                 org $1100
@@ -56,7 +59,7 @@ ENTERO:         ds 100
                 jsr [PRINTF,X]
                 jsr Leer_Cant           ;Salto a Leer Cantidad
                 jsr Buscar
-
+                jsr Print_Res
                 bra *
                 
 
@@ -106,9 +109,9 @@ SaveRES`        addb CANT
 ;#################################################################
 ;               Subrutina Bucar
                 loc
-Buscar:         ldaa Long
+Buscar:         ldaa #0
                 movw #ENTERO,CurENTERO  ;Crear contador de tabla
-Loop1`          ldx #DATOS-1
+Loop1`          ldx #DATOS
                 ldy #CUAD            ;Cuad más el numero maximo de datos
 Loop2`          ldab A,X
                 cmpb 0,Y
@@ -124,13 +127,15 @@ Loop2`          ldab A,X
                 pula                    ;recupera el valor de R1
                 inc CONT
 chk_FIN`        dec CANT
-                dbne A, Loop1`          ;Check si ya no hay datos
-                bra return`
                 ldab CANT               ;Check si ya logro la cantidad solicitada
-                bne Loop1`
+                bne chk2`
+                bra return`
+chk2`           inca
+                cmpa LONG
+                bne Loop1`          ;Check si ya no hay datos
 return`         rts
 FindCuad`       cpy #CUAD+15
-                bge chk_FIN`
+                bge chk2`
 InTable`        iny
                 bra Loop2`
                 
@@ -161,7 +166,30 @@ CheckFin`       pshb
 
 ;#################################################################
 ;               Subrutina Print_Result
-
+Print_Res:      loc
+                ldab CONT
+                ldaa #0
+                pshd
+                ldd #MESS2
+                ldx #0
+                jsr [PRINTF,X]
+                leas 2,SP
+                ldy #ENTERO
+LoopF`          ldx #0
+                ldab 1,Y+
+                pshy
+                pshb
+                ldab #0
+                pshb
+                ldd #MESS5
+                jsr [PRINTF,X]
+                leas 2,SP
+                puly
+                dec CONT
+                ldaa CONT
+                cmpa #0
+                bne LoopF`
+                rts
 
 
                 
