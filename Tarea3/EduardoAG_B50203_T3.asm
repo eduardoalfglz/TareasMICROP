@@ -26,7 +26,9 @@ FIN:            equ $0
 LONG:           db 10
 CANT:           ds 1
 CONT:           ds 1
-CurENTERO:      ds 2
+CurENTERO:      ds 2    ;Posicion actual de entero para el direccionamiento de la tabla
+CalcRoot:       ds 2    ;Variable temporal para el calculo de raiz
+ResDiv:         ds 2    ;Resultado de div
 MESS1:          fcc "Ingrese el valor de cant Entre 1 y 99"
                 db CR,LF,FIN
 MESS2:          fcc "Cantidad de valores encontrados %i"
@@ -70,6 +72,7 @@ Leer_Cant:      ldaa #1
                 staa CANT
                 staa CONT
                 ldx #$0000
+                loc
 Loop`           jsr [GETCHAR,X]
                 ldaa #48
                 cba
@@ -102,6 +105,7 @@ SaveRES`        addb CANT
 
 ;#################################################################
 ;               Subrutina Bucar
+                loc
 Buscar:         ldaa Long
                 movw #ENTERO,CurENTERO  ;Crear contador de tabla
 Loop1`          ldx #DATOS-1
@@ -119,7 +123,7 @@ Loop2`          ldab A,X
                 inc CurENTERO+1
                 pula                    ;recupera el valor de R1
                 inc CONT
-chk_FIN`	dec CANT
+chk_FIN`        dec CANT
                 dbne A, Loop1`          ;Check si ya no hay datos
                 bra return`
                 ldab CANT               ;Check si ya logro la cantidad solicitada
@@ -133,7 +137,27 @@ InTable`        iny
 
 ;#################################################################
 ;               Subrutina Raiz
-RAIZ:           rts
+                loc
+RAIZ:           puly                    ;Save return location
+                pulb                    ;Pull number to calc root
+                ldaa #0
+                std CalcRoot
+                tfr D,X
+Loop`           pshx                    ;Save b
+                idiv                    ;j=x/b d=res
+                puld                    ;get b
+                stx ResDiv
+                cpd ResDiv
+                beq CheckFin`
+                abx
+                tfr X,D                 ;transfer para hacer lsr
+                lsrd
+                tfr D,X
+                ldd CalcRoot
+                bra Loop`
+CheckFin`       pshb
+                pshy
+                rts
 
 ;#################################################################
 ;               Subrutina Print_Result

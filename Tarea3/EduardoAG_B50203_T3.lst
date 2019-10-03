@@ -29,32 +29,34 @@ ee86                    PUTCHAR:        equ $EE86
 1000 0a                 LONG:           db 10
 1001                    CANT:           ds 1
 1002                    CONT:           ds 1
-1003                    CurENTERO:      ds 2
-1005 49 6e 67 72 65 73  MESS1:          fcc "Ingrese el valor de cant Entre 1 y 99"
+1003                    CurENTERO:      ds 2    ;Posicion actual de entero para el direccionamiento de la tabla
+1005                    CalcRoot:       ds 2    ;Variable temporal para el calculo de raiz
+1007                    ResDiv:         ds 2    ;Resultado de div
+1009 49 6e 67 72 65 73  MESS1:          fcc "Ingrese el valor de cant Entre 1 y 99"
      65 20 65 6c 20 76
      61 6c 6f 72 20 64
      65 20 63 61 6e 74
      20 45 6e 74 72 65
      20 31 20 79 20 39
      39
-102a 0d 0a 00                           db CR,LF,FIN
-102d 43 61 6e 74 69 64  MESS2:          fcc "Cantidad de valores encontrados %i"
+102e 0d 0a 00                           db CR,LF,FIN
+1031 43 61 6e 74 69 64  MESS2:          fcc "Cantidad de valores encontrados %i"
      61 64 20 64 65 20
      76 61 6c 6f 72 65
      73 20 65 6e 63 6f
      6e 74 72 61 64 6f
      73 20 25 69
-104f 0d 0a 00                           db CR,LF,FIN
-1052 45 6e 74 65 72 6f  MESS3:          fcc "Entero: "
+1053 0d 0a 00                           db CR,LF,FIN
+1056 45 6e 74 65 72 6f  MESS3:          fcc "Entero: "
      3a 20
-105a 00                                 db FIN
-105b 0d 0a              MESS4:          db CR,LF
-105d 4c 61 20 63 61 6e                  fcc "La cantidad ingresada es: %i"
+105e 00                                 db FIN
+105f 0d 0a              MESS4:          db CR,LF
+1061 4c 61 20 63 61 6e                  fcc "La cantidad ingresada es: %i"
      74 69 64 61 64 20
      69 6e 67 72 65 73
      61 64 61 20 65 73
      3a 20 25 69
-1079 0d 0a 00                           db CR,LF,FIN
+107d 0d 0a 00                           db CR,LF,FIN
                                         
 1020                                    org $1020
 1020 04 09 12 04 1b 3f  DATOS:          db 4,9,18,4,27,63,12,32,36,15
@@ -71,7 +73,7 @@ ee86                    PUTCHAR:        equ $EE86
                         ;               Inicio de programa principal
 2000                                    org $2000
 2000 cf 3b ff                           lds #$3BFF              ;Definicion del Stack
-2003 cc 10 05                           ldd #MESS1              ;Imprimir el primer mensaje
+2003 cc 10 09                           ldd #MESS1              ;Imprimir el primer mensaje
 2006 ce 00 00                           ldx #0
 2009 15 e3 ee 88                        jsr [PRINTF,X]
 200d 16 20 15                           jsr Leer_Cant           ;Salto a Leer Cantidad
@@ -92,6 +94,7 @@ ee86                    PUTCHAR:        equ $EE86
 2019 7a 10 01                           staa CANT
 201c 7a 10 02                           staa CONT
 201f ce 00 00                           ldx #$0000
+                                        loc
 2022 15 e3 ee 84        Loop`           jsr [GETCHAR,X]
 2026 86 30                              ldaa #48
 2028 18 17                              cba
@@ -116,7 +119,7 @@ ee86                    PUTCHAR:        equ $EE86
 2051 3b                                 pshd
 2052 c6 0a                              ldab #LF
 2054 15 e3 ee 86                        jsr [PUTCHAR,X]
-2058 cc 10 5b                           ldd #MESS4
+2058 cc 10 5f                           ldd #MESS4
 205b 15 e3 ee 88                        jsr [PRINTF,X]
 205f 1b 82                              leas 2,SP
 2061 3d                                 rts
@@ -124,6 +127,7 @@ ee86                    PUTCHAR:        equ $EE86
                         
                         ;#################################################################
                         ;               Subrutina Bucar
+                                        loc
 2062 b6 10 00           Buscar:         ldaa Long
 2065 18 03 11 00 10 03                  movw #ENTERO,CurENTERO  ;Crear contador de tabla
 206b ce 10 1f           Loop1`          ldx #DATOS-1
@@ -141,7 +145,7 @@ ee86                    PUTCHAR:        equ $EE86
 2086 72 10 04                           inc CurENTERO+1
 2089 32                                 pula                    ;recupera el valor de R1
 208a 72 10 02                           inc CONT
-208d 73 10 01           chk_FIN`	dec CANT
+208d 73 10 01           chk_FIN`        dec CANT
 2090 04 30 d8                           dbne A, Loop1`          ;Check si ya no hay datos
 2093 20 05                              bra return`
 2095 f6 10 01                           ldab CANT               ;Check si ya logro la cantidad solicitada
@@ -155,7 +159,27 @@ ee86                    PUTCHAR:        equ $EE86
                         
                         ;#################################################################
                         ;               Subrutina Raiz
-20a3 3d                 RAIZ:           rts
+                                        loc
+20a3 31                 RAIZ:           puly                    ;Save return location
+20a4 33                                 pulb                    ;Pull number to calc root
+20a5 86 00                              ldaa #0
+20a7 7c 10 05                           std CalcRoot
+20aa b7 45                              tfr D,X
+20ac 34                 Loop`           pshx                    ;Save b
+20ad 18 10                              idiv                    ;j=x/b d=res
+20af 3a                                 puld                    ;get b
+20b0 7e 10 07                           stx ResDiv
+20b3 bc 10 07                           cpd ResDiv
+20b6 27 0c                              beq CheckFin`
+20b8 1a e5                              abx
+20ba b7 54                              tfr X,D                 ;transfer para hacer lsr
+20bc 49                                 lsrd
+20bd b7 45                              tfr D,X
+20bf fc 10 05                           ldd CalcRoot
+20c2 20 e8                              bra Loop`
+20c4 37                 CheckFin`       pshb
+20c5 35                                 pshy
+20c6 3d                                 rts
                         
                         ;#################################################################
                         ;               Subrutina Print_Result
@@ -164,6 +188,6 @@ ee86                    PUTCHAR:        equ $EE86
                         
                                         
 
-Executed: Wed Oct 02 00:50:58 2019
-Total cycles: 197, Total bytes: 309
+Executed: Wed Oct 02 20:59:33 2019
+Total cycles: 253, Total bytes: 344
 Total errors: 0, Total warnings: 0
