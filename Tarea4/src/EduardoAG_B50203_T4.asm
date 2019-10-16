@@ -36,8 +36,8 @@ NUM_ARRAY:      ds 6
 TECLAS:         db $01,$02,$03,$04,$05,$06,$07,$08,$09,$0B,$00,$0E
 
 
-                org $1100
-MESS1:          fcc "Numero %i puerto A:%i"
+                org $1200
+MESS1:          fcc "Numero: %i"
                 db CR,LF,CR,LF,FIN
                 
                 
@@ -58,7 +58,7 @@ MESS1:          fcc "Numero %i puerto A:%i"
                 movb #$49, RTICTL       ;FIXME, esto lo pone en 9.26 ms
                 bset CRGINT, $80        ;habilitar interrupciones rti
                 movb #$F0, DDRA
-                bset PUCR, $01
+                bset PUCR, $01          ;Super importante habilitar resistencia de pullup
 ;                bclr RDRIV, $01
                 cli
 
@@ -74,7 +74,7 @@ MESS1:          fcc "Numero %i puerto A:%i"
                 bclr BANDERAS,$07      ;Poner las banderas en 0
                 ldaa MAX_TCL
                 ldx #NUM_ARRAY
-LoopCLR:        movb #$0,A,X
+LoopCLR:        movb #$FF,A,X          ;iniciar el arreglo en FF
                 dbne A,LoopCLR
 mainL:          brset BANDERAS,$04,mainL
                 jsr TAREA_TECLADO
@@ -86,19 +86,29 @@ mainL:          brset BANDERAS,$04,mainL
 
 
 ;       Subrutina Tarea Teclado
-TAREA_TECLADO:  jsr MUX_TECLADO
-		ldx #$0
-
-                ldaa #0
-                ldab puertoA
-                pshd
-                ldaa #0
-                ldab TECLA
-                pshd
-                ldd #MESS1
-                jsr [printf,X]
-                leas 4,sp
-                rts
+TAREA_TECLADO:  loc
+                tst CONT_REB
+                bne return`
+                jsr MUX_TECLADO
+                ldaa TECLA
+                cmpa #$FF
+                beq checkLista`
+                brset BANDERAS,$02,checkLeida`        ;revision de bandera Tecla leida
+                movb TECLA,TECLA_IN
+                bset BANDERAS,$02
+                movb #$A,CONT_REB                       ;iniciar contador de rebotes
+                bra return`
+checkLeida`     cmpa TECLA_IN                           ;Comparar Tecla con tecla_in
+                bne Diferente`
+                bset BANDERAS,$01
+                bra return`
+Diferente`      movb #$FF,TECLA
+                movb #$FF,TECLA_IN
+                bra return`
+checkLista`     brclr BANDERAS,$01,return`
+                bclr BANDERAS,$03
+                jsr FORMAR_ARRAY
+return`         rts
 
 ;       Subrutina MUX_TECLADO
 MUX_TECLADO:    loc
@@ -134,12 +144,18 @@ read:           brclr PORTA,$01, treturn`       ;se leen las entradas para encon
 nk              movb #$FF,TECLA                 ;Se guarda la tecla o se retorna FF
                 bra return`
 treturn`        movb PORTA,puertoA
-		movb B,X,TECLA
-return`		rts
+                movb B,X,TECLA
+return`         rts
 ;       Subrutina formar array
 
-FORMAR_ARRAY:   loc
-
+FORMAR_ARRAY:   ldab TECLA_IN
+                pshb
+		ldaa #00
+		psha
+		ldd #MESS1
+                ldx #$0
+                jsr [Printf,X]
+                leas 2,SP
                 rts
 
 ;################################################
@@ -147,10 +163,10 @@ FORMAR_ARRAY:   loc
 
 
 ;        subrutina de PHO
-                org $2100
+
                 loc
 PTH0_ISR:       bset PIFH, $01
-                bset BANDERAS, $04
+                bclr BANDERAS, $04
 ;FIXMe
 returnPH0:      rti
 
@@ -161,5 +177,3 @@ INIT_ISR:       bset CRGFLG, $80
                 beq return`
                 dec CONT_REB
 return`         rti
-
-
