@@ -148,14 +148,7 @@ treturn`        movb PORTA,puertoA
 return`         rts
 ;       Subrutina formar array
 
-FORMAR_ARRAY:   ldab TECLA_IN
-                pshb
-		ldaa #00
-		psha
-		ldd #MESS1
-                ldx #$0
-                jsr [Printf,X]
-                leas 2,SP
+FORMAR_ARRAY:
                 rts
 
 ;################################################
