@@ -8,7 +8,7 @@ as12, an absolute assembler for Motorola MCU's, version 1.2h
                         ;               Eduardo Alfaro Gonzalez
                         ;               B50203
                         ;               Lectura teclado matricial
-                        ;               Ultima vez modificado 15/10/19
+                        ;               Ultima vez modificado 16/10/19
                         ;
                         ;
                         ;#################################################################
@@ -652,15 +652,16 @@ eeb2                    WriteMem equ    $EEB2   ; FAR call
 1000 05                 MAX_TCL:        db 5
 1001                    TECLA:          ds 1
 1002                    TECLA_IN:       ds 1
+                        
 1003                    CONT_REB:       ds 1
 1004                    CONT_TCL:       ds 1
 1005                    PATRON:         ds 1
 1006                    BANDERAS:       ds 1
-1007                    puertoA:        ds 1
                         
                         
-1008                    NUM_ARRAY:      ds 6
-100e 01 02 03 04 05 06  TECLAS:         db $01,$02,$03,$04,$05,$06,$07,$08,$09,$0B,$00,$0E
+                        
+1007                    NUM_ARRAY:      ds 6
+100d 01 02 03 04 05 06  TECLAS:         db $01,$02,$03,$04,$05,$06,$07,$08,$09,$0B,$00,$0E
      07 08 09 0b 00 0e
                         
                         
@@ -669,11 +670,14 @@ eeb2                    WriteMem equ    $EEB2   ; FAR call
      3a 20 25 69
 120a 0d 0a 0d 0a 00                     db CR,LF,CR,LF,FIN
                                         
+120f 25 69 2c           MESS2:          fcc "%i,"
+1212 0a 00                              db LF,FIN
+                                        
                                         
 3e70                                    org $3E70
-3e70 21 10                              dw INIT_ISR
+3e70 21 5c                              dw INIT_ISR
 3e4c                                    org $3E4C
-3e4c 21 07                              dw PTH0_ISR
+3e4c 21 2f                              dw PTH0_ISR
                         
                         ;################################################
                         ;       Programa principal
@@ -699,15 +703,16 @@ eeb2                    WriteMem equ    $EEB2   ; FAR call
 201a cf 3b ff                           lds #$3BFF
 201d 18 0b ff 10 01                     movb #$FF, TECLA
 2022 18 0b ff 10 02                     movb #$FF, TECLA_IN
-2027 18 0b 00 10 03                     movb #$00, CONT_REB
-202c 1d 10 06 07                        bclr BANDERAS,$07      ;Poner las banderas en 0
-2030 b6 10 00                           ldaa MAX_TCL
-2033 ce 10 08                           ldx #NUM_ARRAY
-2036 18 08 e4 ff        LoopCLR:        movb #$FF,A,X          ;iniciar el arreglo en FF
-203a 04 30 f9                           dbne A,LoopCLR
-203d 1e 10 06 04 fb     mainL:          brset BANDERAS,$04,mainL
-2042 16 20 47                           jsr TAREA_TECLADO
-2045 20 f6                              bra mainL
+2027 18 0b 00 10 04                     movb #$00, CONT_TCL
+202c 18 0b 00 10 03                     movb #$00, CONT_REB
+2031 1d 10 06 07                        bclr BANDERAS,$07      ;Poner las banderas en 0
+2035 b6 10 00                           ldaa MAX_TCL
+2038 ce 10 06                           ldx #NUM_ARRAY-1
+203b 18 08 e4 ff        LoopCLR:        movb #$FF,A,X          ;iniciar el arreglo en FF
+203f 04 30 f9                           dbne A,LoopCLR
+2042 1e 10 06 04 fb     mainL:          brset BANDERAS,$04,mainL
+2047 16 20 4c                           jsr TAREA_TECLADO
+204a 20 f6                              bra mainL
                         ;################################################
                         ;       Subrutinas
                         ;################################################
@@ -716,76 +721,94 @@ eeb2                    WriteMem equ    $EEB2   ; FAR call
                         
                         ;       Subrutina Tarea Teclado
                         TAREA_TECLADO:  loc
-2047 f7 10 03                           tst CONT_REB
-204a 26 43                              bne return`
-204c 16 20 90                           jsr MUX_TECLADO
-204f b6 10 01                           ldaa TECLA
-2052 81 ff                              cmpa #$FF
-2054 27 2d                              beq checkLista`
-2056 1e 10 06 02 11                     brset BANDERAS,$02,checkLeida`        ;revision de bandera Tecla leida
-205b 18 0c 10 01 10 02                  movb TECLA,TECLA_IN
-2061 1c 10 06 02                        bset BANDERAS,$02
-2065 18 0b 0a 10 03                     movb #$A,CONT_REB                       ;iniciar contador de rebotes
-206a 20 23                              bra return`
-206c b1 10 02           checkLeida`     cmpa TECLA_IN                           ;Comparar Tecla con tecla_in
-206f 26 06                              bne Diferente`
-2071 1c 10 06 01                        bset BANDERAS,$01
-2075 20 18                              bra return`
-2077 18 0b ff 10 01     Diferente`      movb #$FF,TECLA
-207c 18 0b ff 10 02                     movb #$FF,TECLA_IN
-2081 20 0c                              bra return`
-2083 1f 10 06 01 07     checkLista`     brclr BANDERAS,$01,return`
-2088 1d 10 06 03                        bclr BANDERAS,$03
-208c 16 20 f3                           jsr FORMAR_ARRAY
-208f 3d                 return`         rts
+204c f7 10 03                           tst CONT_REB
+204f 26 47                              bne return`
+2051 16 20 99                           jsr MUX_TECLADO
+2054 b6 10 01                           ldaa TECLA
+2057 81 ff                              cmpa #$FF
+2059 27 31                              beq checkLista`
+205b 1e 10 06 02 11                     brset BANDERAS,$02,checkLeida`        ;revision de bandera Tecla leida
+2060 18 0c 10 01 10 02                  movb TECLA,TECLA_IN
+2066 1c 10 06 02                        bset BANDERAS,$02
+206a 18 0b 0a 10 03                     movb #$A,CONT_REB                       ;iniciar contador de rebotes
+206f 20 27                              bra return`
+2071 b1 10 02           checkLeida`     cmpa TECLA_IN                           ;Comparar Tecla con tecla_in
+2074 26 06                              bne Diferente`
+2076 1c 10 06 01                        bset BANDERAS,$01
+207a 20 1c                              bra return`
+207c 18 0b ff 10 01     Diferente`      movb #$FF,TECLA                         ;Las teclas son invalidas
+2081 18 0b ff 10 02                     movb #$FF,TECLA_IN
+2086 1d 10 06 03                        bclr BANDERAS,$03
+208a 20 0c              		bra return`
+208c 1f 10 06 01 07     checkLista`     brclr BANDERAS,$01,return`              ;el numero esta listo
+2091 1d 10 06 03                        bclr BANDERAS,$03
+2095 16 20 f6                           jsr FORMAR_ARRAY
+2098 3d                 return`         rts
                         
                         ;       Subrutina MUX_TECLADO
                         MUX_TECLADO:    loc
-2090 c6 00                              ldab #0
-2092 18 0b 00 10 05                     movb #0,PATRON
-2097 ce 10 0e                           ldx #TECLAS
-209a f7 10 05           mainloop`       tst PATRON
-209d 26 07                              bne p1
-209f 18 0b ef 00 00                     movb #$EF,PORTA
-20a4 20 26                              bra READ
-20a6 86 01              p1:             ldaa #1
-20a8 b1 10 05                           cmpa PATRON
-20ab 26 07                              bne p2
-20ad 18 0b df 00 00                     movb #$DF,PORTA
-20b2 20 18                              bra READ
-20b4 42                 p2:             inca                    ;A=2
-20b5 b1 10 05                           cmpa PATRON
-20b8 26 07                              bne p3
-20ba 18 0b bf 00 00                     movb #$BF,PORTA
-20bf 20 0b                              bra READ
-20c1 42                 p3:             inca                    ;A=3
-20c2 b1 10 05                           cmpa PATRON             ;Se detecta cual patron se debe usar en la salida
-20c5 26 19                              bne nk
-20c7 18 0b 7f 00 00                     movb #$7F,PORTA
-20cc 4f 00 01 17        read:           brclr PORTA,$01, treturn`       ;se leen las entradas para encontrar la tecla presionada
-20d0 52                                 incb
-20d1 4f 00 02 12                        brclr PORTA,$02, treturn`
-20d5 52                                 incb
-20d6 4f 00 04 0d                        brclr PORTA,$04, treturn`
-20da 52                                 incb
-20db 72 10 05                           inc PATRON
-20de 20 ba                              bra mainloop`
-20e0 18 0b ff 10 01     nk              movb #$FF,TECLA                 ;Se guarda la tecla o se retorna FF
-20e5 20 0b                              bra return`
-20e7 18 0c 00 00 10 07  treturn`        movb PORTA,puertoA
-20ed 18 0d e5 10 01                     movb B,X,TECLA
-20f2 3d                 return`         rts
+2099 c6 00                              ldab #0
+209b 18 0b 00 10 05                     movb #0,PATRON
+20a0 ce 10 0d                           ldx #TECLAS
+20a3 f7 10 05           mainloop`       tst PATRON
+20a6 26 07                              bne p1
+20a8 18 0b ef 00 00                     movb #$EF,PORTA
+20ad 20 26                              bra READ
+20af 86 01              p1:             ldaa #1
+20b1 b1 10 05                           cmpa PATRON
+20b4 26 07                              bne p2
+20b6 18 0b df 00 00                     movb #$DF,PORTA
+20bb 20 18                              bra READ
+20bd 42                 p2:             inca                    ;A=2
+20be b1 10 05                           cmpa PATRON
+20c1 26 07                              bne p3
+20c3 18 0b bf 00 00                     movb #$BF,PORTA
+20c8 20 0b                              bra READ
+20ca 42                 p3:             inca                    ;A=3
+20cb b1 10 05                           cmpa PATRON             ;Se detecta cual patron se debe usar en la salida
+20ce 26 19                              bne nk
+20d0 18 0b 7f 00 00                     movb #$7F,PORTA
+20d5 4f 00 01 17        read:           brclr PORTA,$01, treturn`       ;se leen las entradas para encontrar la tecla presionada
+20d9 52                                 incb
+20da 4f 00 02 12                        brclr PORTA,$02, treturn`
+20de 52                                 incb
+20df 4f 00 04 0d                        brclr PORTA,$04, treturn`
+20e3 52                                 incb
+20e4 72 10 05                           inc PATRON
+20e7 20 ba                              bra mainloop`
+20e9 18 0b ff 10 01     nk              movb #$FF,TECLA                 ;Se guarda la tecla o se retorna FF
+20ee 20 05                              bra return`
+20f0 18 0d e5 10 01     treturn`        movb B,X,TECLA
+20f5 3d                 return`         rts
                         ;       Subrutina formar array
                         
-20f3 f6 10 02           FORMAR_ARRAY:   ldab TECLA_IN
-20f6 37                                 pshb
-20f7 86 00              		ldaa #00
-20f9 36                 		psha
-20fa cc 12 00           		ldd #MESS1
-20fd ce 00 00                           ldx #$0
-2100 15 e3 ee 88                        jsr [Printf,X]
-2104 1b 82                              leas 2,SP
-2106 3d                                 rts
+                        FORMAR_ARRAY:   loc
+20f6 ce 10 07                           ldx #NUM_ARRAY
+20f9 b6 10 02                           ldaa TECLA_IN
+20fc f6 10 04                           ldab CONT_TCL
+20ff 27 0f                              beq check_MAX`
+2101 81 0e                              cmpa #$0E
+2103 27 1b                              beq t_enter`
+2105 81 0b                              cmpa #$0B
+2107 27 1d                              beq t_borrar`
+2109 f1 10 00                           cmpb MAX_TCL
+210c 27 20                              beq return`
+210e 20 08                              bra guardar`
+2110 81 0e              check_MAX`      cmpa #$0E
+2112 27 1a                              beq return`
+2114 81 0b                              cmpa #$0B
+2116 27 16                              beq return`
+2118 6a e5              guardar` 	staa B,X
+211a 52                                 incb
+211b 7b 10 04                           stab CONT_TCL
+211e 20 0e                              bra return`
+2120 1c 10 06 04        t_enter`        bset BANDERAS,$04
+                                        ;movb #$0,CONT_TCL
+2124 20 08                              bra return`
+2126 53                 t_borrar`       decb
+2127 18 08 e5 ff        		movb #$FF,B,X
+212b 7b 10 04                           stab CONT_TCL
+212e 3d                 return`         rts
                         
                         ;################################################
                         ;       Subrutinas de proposito especifico
@@ -794,19 +817,33 @@ eeb2                    WriteMem equ    $EEB2   ; FAR call
                         ;        subrutina de PHO
                         
                                         loc
-2107 1c 02 67 01        PTH0_ISR:       bset PIFH, $01
-210b 1d 10 06 04                        bclr BANDERAS, $04
-                        ;FIXMe
-210f 0b                 returnPH0:      rti
+212f 1c 02 67 01        PTH0_ISR:       bset PIFH, $01
+2133 1f 10 06 04 23                     brclr BANDERAS,$04,returnPH0
+2138 1d 10 06 04        		bclr BANDERAS, $04
+213c cd 10 07                           ldy #NUM_ARRAY
+213f ce 00 00           loop`           ldx #$0
+2142 e6 70                   		ldab 1,Y+
+2144 35                                 pshy
+2145 86 00              		ldaa #$0
+2147 3b                                 pshd
+2148 18 08 5f ff                        movb #$FF,-1,Y
+214c cc 12 0f                           ldd #MESS2
+214f 15 e3 ee 88                        jsr [printf,X]
+2153 1b 82                              leas 2,sp
+2155 31                                 puly
+2156 73 10 04           		dec CONT_TCL
+2159 26 e4                              bne loop`
+                                        
+215b 0b                 returnPH0:      rti
                         
                         ;       subrutina de rti
                                         loc
-2110 4c 37 80           INIT_ISR:       bset CRGFLG, $80
-2113 f7 10 03                           tst CONT_REB
-2116 27 03                              beq return`
-2118 73 10 03                           dec CONT_REB
-211b 0b                 return`         rti
+215c 4c 37 80           INIT_ISR:       bset CRGFLG, $80
+215f f7 10 03                           tst CONT_REB
+2162 27 03                              beq return`
+2164 73 10 03                           dec CONT_REB
+2167 0b                 return`         rti
 
-Executed: Wed Oct 16 17:39:32 2019
-Total cycles: 319, Total bytes: 316
+Executed: Wed Oct 16 21:26:02 2019
+Total cycles: 404, Total bytes: 397
 Total errors: 0, Total warnings: 0

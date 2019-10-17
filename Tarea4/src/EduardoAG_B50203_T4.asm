@@ -5,7 +5,7 @@
 ;               Eduardo Alfaro Gonzalez
 ;               B50203
 ;               Lectura teclado matricial
-;               Ultima vez modificado 15/10/19
+;               Ultima vez modificado 16/10/19
 ;
 ;
 ;#################################################################
@@ -25,11 +25,12 @@ FIN:            equ $0
 MAX_TCL:        db 5
 TECLA:          ds 1
 TECLA_IN:       ds 1
+
 CONT_REB:       ds 1
 CONT_TCL:       ds 1
 PATRON:         ds 1
 BANDERAS:       ds 1
-puertoA:        ds 1
+
 
 
 NUM_ARRAY:      ds 6
@@ -39,6 +40,9 @@ TECLAS:         db $01,$02,$03,$04,$05,$06,$07,$08,$09,$0B,$00,$0E
                 org $1200
 MESS1:          fcc "Numero: %i"
                 db CR,LF,CR,LF,FIN
+                
+MESS2:          fcc "%i,"
+                db LF,FIN
                 
                 
                 org $3E70
@@ -70,10 +74,11 @@ MESS1:          fcc "Numero: %i"
                 lds #$3BFF
                 movb #$FF, TECLA
                 movb #$FF, TECLA_IN
+                movb #$00, CONT_TCL
                 movb #$00, CONT_REB
                 bclr BANDERAS,$07      ;Poner las banderas en 0
                 ldaa MAX_TCL
-                ldx #NUM_ARRAY
+                ldx #NUM_ARRAY-1
 LoopCLR:        movb #$FF,A,X          ;iniciar el arreglo en FF
                 dbne A,LoopCLR
 mainL:          brset BANDERAS,$04,mainL
@@ -102,10 +107,11 @@ checkLeida`     cmpa TECLA_IN                           ;Comparar Tecla con tecl
                 bne Diferente`
                 bset BANDERAS,$01
                 bra return`
-Diferente`      movb #$FF,TECLA
+Diferente`      movb #$FF,TECLA                         ;Las teclas son invalidas
                 movb #$FF,TECLA_IN
-                bra return`
-checkLista`     brclr BANDERAS,$01,return`
+                bclr BANDERAS,$03
+		bra return`
+checkLista`     brclr BANDERAS,$01,return`              ;el numero esta listo
                 bclr BANDERAS,$03
                 jsr FORMAR_ARRAY
 return`         rts
@@ -143,13 +149,37 @@ read:           brclr PORTA,$01, treturn`       ;se leen las entradas para encon
                 bra mainloop`
 nk              movb #$FF,TECLA                 ;Se guarda la tecla o se retorna FF
                 bra return`
-treturn`        movb PORTA,puertoA
-                movb B,X,TECLA
+treturn`        movb B,X,TECLA
 return`         rts
 ;       Subrutina formar array
 
-FORMAR_ARRAY:
-                rts
+FORMAR_ARRAY:   loc
+                ldx #NUM_ARRAY
+                ldaa TECLA_IN
+                ldab CONT_TCL
+                beq check_MAX`
+                cmpa #$0E
+                beq t_enter`
+                cmpa #$0B
+                beq t_borrar`
+                cmpb MAX_TCL
+                beq return`
+                bra guardar`
+check_MAX`      cmpa #$0E
+                beq return`
+                cmpa #$0B
+                beq return`
+guardar` 	staa B,X
+                incb
+                stab CONT_TCL
+                bra return`
+t_enter`        bset BANDERAS,$04
+                ;movb #$0,CONT_TCL
+                bra return`
+t_borrar`       decb
+		movb #$FF,B,X
+                stab CONT_TCL
+return`         rts
 
 ;################################################
 ;       Subrutinas de proposito especifico
@@ -159,8 +189,22 @@ FORMAR_ARRAY:
 
                 loc
 PTH0_ISR:       bset PIFH, $01
-                bclr BANDERAS, $04
-;FIXMe
+                brclr BANDERAS,$04,returnPH0
+		bclr BANDERAS, $04
+                ldy #NUM_ARRAY
+loop`           ldx #$0
+     		ldab 1,Y+
+                pshy
+		ldaa #$0
+                pshd
+                movb #$FF,-1,Y
+                ldd #MESS2
+                jsr [printf,X]
+                leas 2,sp
+                puly
+		dec CONT_TCL
+                bne loop`
+                
 returnPH0:      rti
 
 ;       subrutina de rti
