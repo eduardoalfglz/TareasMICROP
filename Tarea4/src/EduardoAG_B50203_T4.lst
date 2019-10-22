@@ -8,7 +8,7 @@ as12, an absolute assembler for Motorola MCU's, version 1.2h
                         ;               Eduardo Alfaro Gonzalez
                         ;               B50203
                         ;               Lectura teclado matricial
-                        ;               Ultima vez modificado 16/10/19
+                        ;               Ultima vez modificado 21/10/19
                         ;
                         ;
                         ;#################################################################
@@ -665,19 +665,18 @@ eeb2                    WriteMem equ    $EEB2   ; FAR call
      07 08 09 0b 00 0e
                         
                         
-1200                                    org $1200
-1200 4e 75 6d 65 72 6f  MESS1:          fcc "Numero: %i"
-     3a 20 25 69
-120a 0d 0a 0d 0a 00                     db CR,LF,CR,LF,FIN
+                        ;                org $1200
+                        ;MESS1:          fcc "Numero: %i"
+                        ;                db CR,LF,CR,LF,FIN
                                         
-120f 25 69 2c           MESS2:          fcc "%i,"
-1212 0a 00                              db LF,FIN
+                        ;MESS2:          fcc "%i,"
+                        ;                db LF,FIN
                                         
                                         
 3e70                                    org $3E70
-3e70 21 5c                              dw INIT_ISR
+3e70 21 55                              dw INIT_ISR
 3e4c                                    org $3E4C
-3e4c 21 2f                              dw PTH0_ISR
+3e4c 21 34                              dw PTH0_ISR
                         
                         ;################################################
                         ;       Programa principal
@@ -739,7 +738,7 @@ eeb2                    WriteMem equ    $EEB2   ; FAR call
 207c 18 0b ff 10 01     Diferente`      movb #$FF,TECLA                         ;Las teclas son invalidas
 2081 18 0b ff 10 02                     movb #$FF,TECLA_IN
 2086 1d 10 06 03                        bclr BANDERAS,$03
-208a 20 0c              		bra return`
+208a 20 0c                              bra return`
 208c 1f 10 06 01 07     checkLista`     brclr BANDERAS,$01,return`              ;el numero esta listo
 2091 1d 10 06 03                        bclr BANDERAS,$03
 2095 16 20 f6                           jsr FORMAR_ARRAY
@@ -790,25 +789,25 @@ eeb2                    WriteMem equ    $EEB2   ; FAR call
 2101 81 0e                              cmpa #$0E
 2103 27 1b                              beq t_enter`
 2105 81 0b                              cmpa #$0B
-2107 27 1d                              beq t_borrar`
+2107 27 22                              beq t_borrar`
 2109 f1 10 00                           cmpb MAX_TCL
-210c 27 20                              beq return`
+210c 27 25                              beq return`
 210e 20 08                              bra guardar`
 2110 81 0e              check_MAX`      cmpa #$0E
-2112 27 1a                              beq return`
+2112 27 1f                              beq return`
 2114 81 0b                              cmpa #$0B
-2116 27 16                              beq return`
-2118 6a e5              guardar` 	staa B,X
+2116 27 1b                              beq return`
+2118 6a e5              guardar`        staa B,X
 211a 52                                 incb
 211b 7b 10 04                           stab CONT_TCL
-211e 20 0e                              bra return`
+211e 20 13                              bra return`
 2120 1c 10 06 04        t_enter`        bset BANDERAS,$04
-                                        ;movb #$0,CONT_TCL
-2124 20 08                              bra return`
-2126 53                 t_borrar`       decb
-2127 18 08 e5 ff        		movb #$FF,B,X
-212b 7b 10 04                           stab CONT_TCL
-212e 3d                 return`         rts
+2124 18 0b 00 10 04                     movb #$0,CONT_TCL
+2129 20 08                              bra return`
+212b 53                 t_borrar`       decb
+212c 18 08 e5 ff                        movb #$FF,B,X
+2130 7b 10 04                           stab CONT_TCL
+2133 3d                 return`         rts
                         
                         ;################################################
                         ;       Subrutinas de proposito especifico
@@ -817,33 +816,27 @@ eeb2                    WriteMem equ    $EEB2   ; FAR call
                         ;        subrutina de PHO
                         
                                         loc
-212f 1c 02 67 01        PTH0_ISR:       bset PIFH, $01
-2133 1f 10 06 04 23                     brclr BANDERAS,$04,returnPH0
-2138 1d 10 06 04        		bclr BANDERAS, $04
-213c cd 10 07                           ldy #NUM_ARRAY
-213f ce 00 00           loop`           ldx #$0
-2142 e6 70                   		ldab 1,Y+
-2144 35                                 pshy
-2145 86 00              		ldaa #$0
-2147 3b                                 pshd
-2148 18 08 5f ff                        movb #$FF,-1,Y
-214c cc 12 0f                           ldd #MESS2
-214f 15 e3 ee 88                        jsr [printf,X]
-2153 1b 82                              leas 2,sp
-2155 31                                 puly
-2156 73 10 04           		dec CONT_TCL
-2159 26 e4                              bne loop`
-                                        
-215b 0b                 returnPH0:      rti
+2134 1c 02 67 01        PTH0_ISR:       bset PIFH, $01          
+2138 1f 10 06 04 17                     brclr BANDERAS,$04,returnPH0        ;Si la bandera de array_ok no esta en alto ignorar subrutina
+213d 1d 10 06 04                        bclr BANDERAS, $04                  ;limpiar la bandera
+2141 cd 10 07                           ldy #NUM_ARRAY
+2144 b6 10 00                           ldaa MAX_TCL
+2147 e6 70              loop`           ldab 1,Y+
+2149 c1 ff                              cmpb #$FF                           ;primera condicion de parada
+214b 27 07                              beq returnPH0
+214d 18 08 5f ff                        movb #$FF,-1,Y
+2151 04 30 f3                           dbne A,loop`
+                        
+2154 0b                 returnPH0:      rti
                         
                         ;       subrutina de rti
                                         loc
-215c 4c 37 80           INIT_ISR:       bset CRGFLG, $80
-215f f7 10 03                           tst CONT_REB
-2162 27 03                              beq return`
-2164 73 10 03                           dec CONT_REB
-2167 0b                 return`         rti
+2155 4c 37 80           INIT_ISR:       bset CRGFLG, $80
+2158 f7 10 03                           tst CONT_REB
+215b 27 03                              beq return`
+215d 73 10 03                           dec CONT_REB
+2160 0b                 return`         rti
 
-Executed: Wed Oct 16 21:26:02 2019
-Total cycles: 404, Total bytes: 397
+Executed: Mon Oct 21 23:10:16 2019
+Total cycles: 394, Total bytes: 370
 Total errors: 0, Total warnings: 0

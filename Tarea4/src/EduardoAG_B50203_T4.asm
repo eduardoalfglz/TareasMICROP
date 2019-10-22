@@ -5,7 +5,7 @@
 ;               Eduardo Alfaro Gonzalez
 ;               B50203
 ;               Lectura teclado matricial
-;               Ultima vez modificado 16/10/19
+;               Ultima vez modificado 21/10/19
 ;
 ;
 ;#################################################################
@@ -37,12 +37,12 @@ NUM_ARRAY:      ds 6
 TECLAS:         db $01,$02,$03,$04,$05,$06,$07,$08,$09,$0B,$00,$0E
 
 
-                org $1200
-MESS1:          fcc "Numero: %i"
-                db CR,LF,CR,LF,FIN
+;                org $1200
+;MESS1:          fcc "Numero: %i"
+;                db CR,LF,CR,LF,FIN
                 
-MESS2:          fcc "%i,"
-                db LF,FIN
+;MESS2:          fcc "%i,"
+;                db LF,FIN
                 
                 
                 org $3E70
@@ -110,7 +110,7 @@ checkLeida`     cmpa TECLA_IN                           ;Comparar Tecla con tecl
 Diferente`      movb #$FF,TECLA                         ;Las teclas son invalidas
                 movb #$FF,TECLA_IN
                 bclr BANDERAS,$03
-		bra return`
+                bra return`
 checkLista`     brclr BANDERAS,$01,return`              ;el numero esta listo
                 bclr BANDERAS,$03
                 jsr FORMAR_ARRAY
@@ -169,15 +169,15 @@ check_MAX`      cmpa #$0E
                 beq return`
                 cmpa #$0B
                 beq return`
-guardar` 	staa B,X
+guardar`        staa B,X
                 incb
                 stab CONT_TCL
                 bra return`
 t_enter`        bset BANDERAS,$04
-                ;movb #$0,CONT_TCL
+                movb #$0,CONT_TCL
                 bra return`
 t_borrar`       decb
-		movb #$FF,B,X
+                movb #$FF,B,X
                 stab CONT_TCL
 return`         rts
 
@@ -188,23 +188,17 @@ return`         rts
 ;        subrutina de PHO
 
                 loc
-PTH0_ISR:       bset PIFH, $01
-                brclr BANDERAS,$04,returnPH0
-		bclr BANDERAS, $04
+PTH0_ISR:       bset PIFH, $01          
+                brclr BANDERAS,$04,returnPH0        ;Si la bandera de array_ok no esta en alto ignorar subrutina
+                bclr BANDERAS, $04                  ;limpiar la bandera
                 ldy #NUM_ARRAY
-loop`           ldx #$0
-     		ldab 1,Y+
-                pshy
-		ldaa #$0
-                pshd
+                ldaa MAX_TCL
+loop`           ldab 1,Y+
+                cmpb #$FF                           ;primera condicion de parada
+                beq returnPH0
                 movb #$FF,-1,Y
-                ldd #MESS2
-                jsr [printf,X]
-                leas 2,sp
-                puly
-		dec CONT_TCL
-                bne loop`
-                
+                dbne A,loop`
+
 returnPH0:      rti
 
 ;       subrutina de rti

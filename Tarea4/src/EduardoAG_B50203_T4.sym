@@ -269,7 +269,7 @@ ibsr       00e3
 icovw      006a
 icpar      0068
 icsys      006b
-init_isr   215c
+init_isr   2155
 initee     0012
 initializevectors 0000
 initrg     0011
@@ -281,7 +281,7 @@ isxdigit   ee92
 itcr       0015
 itest      0016
 lf         000a
-loop004    213f
+loop004    2147
 loopclr    203b
 mainl      2042
 mainloop002 20a3
@@ -291,8 +291,6 @@ mcctl      0066
 mcflg      0067
 memsiz0    001c
 memsiz1    001d
-mess1      1200
-mess2      120f
 misc       0013
 mode       000b
 modrr      0257
@@ -354,7 +352,7 @@ prend      3bff
 printf     ee88
 prstart    2000
 pth        0260
-pth0_isr   212f
+pth0_isr   2134
 ptih       0261
 ptij       0269
 ptim       0251
@@ -420,9 +418,9 @@ refdv      0035
 regbase    0000
 return001  2098
 return002  20f5
-return003  212e
-return005  2167
-returnph0  215b
+return003  2133
+return005  2160
+returnph0  2154
 rtictl     003b
 sc0bdh     00c8
 sc0bdl     00c9
@@ -464,7 +462,7 @@ staticvectors 0000
 strcpy     ee9a
 strlen     ee98
 synr       0034
-t_borrar003 2126
+t_borrar003 212b
 t_enter003 2120
 tarea_teclado 204c
 tc0        0050
