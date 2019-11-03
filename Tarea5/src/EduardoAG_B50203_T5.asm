@@ -340,6 +340,8 @@ loop1`          ldaa 1,X+
                 bclr BANDERAS,$20
                 ldaa Clear_LCD
                 jsr Send                ;hasta aqui se borra la pantalla
+                movb D2mS,CONT_DELAY
+                jsr Delay
                 pulx
                 ldaa ADD_L1                        ;aqui empieza cargar lcd
                 bclr BANDERAS,$20

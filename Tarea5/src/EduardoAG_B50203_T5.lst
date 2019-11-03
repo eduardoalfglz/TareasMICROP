@@ -721,11 +721,11 @@ eeb2                    WriteMem equ    $EEB2   ; FAR call
                                         
                                         
 3e70                                    org $3E70
-3e70 23 65                              dw INIT_ISR
+3e70 23 6e                              dw INIT_ISR
 3e4c                                    org $3E4C
-3e4c 23 08                              dw PTH_ISR
+3e4c 23 11                              dw PTH_ISR
 3e66                                    org $3E66
-3e66 23 71                              dw OC4_ISR
+3e66 23 7a                              dw OC4_ISR
                         
                         ;################################################
                         ;       Programa principal
@@ -824,7 +824,7 @@ eeb2                    WriteMem equ    $EEB2   ; FAR call
 20fa ce 10 8a                           ldx #MESS3
 20fd cd 10 93                           ldy #MESS4
 2100 16 22 36                           jsr CARGAR_LCD
-2103 16 23 01           jmodoconfig`    jsr MODO_CONFIG
+2103 16 23 0a           jmodoconfig`    jsr MODO_CONFIG
 2106 20 1a                              bra returnmain
 2108 1f 10 06 10 12     chknodoM0:      brclr BANDERAS,$10,jmodorun`
 210d 1d 10 06 10                        bclr BANDERAS,$10
@@ -832,9 +832,9 @@ eeb2                    WriteMem equ    $EEB2   ; FAR call
 2116 ce 10 70                           ldx #MESS1
 2119 cd 10 7c                           ldy #MESS2
 211c 16 22 36                           jsr CARGAR_LCD
-211f 16 23 07           jmodorun`       jsr MODO_RUN
+211f 16 23 10           jmodorun`       jsr MODO_RUN
                                       
-2122 16 23 00           returnmain:     jsr BIN_BCD
+2122 16 23 09           returnmain:     jsr BIN_BCD
 2125 06 20 be                           jmp mainL
                         
                         
@@ -968,95 +968,97 @@ eeb2                    WriteMem equ    $EEB2   ; FAR call
 223a e6 30                              ldab 1,X+
 223c a6 30              loop1`          ldaa 1,X+
 223e 1d 10 06 20                        bclr BANDERAS,$20
-2242 16 22 b3                           jsr Send
+2242 16 22 bc                           jsr Send
 2245 18 0c 10 26 10 23                  movb D60uS,CONT_DELAY
-224b 16 22 fa                           jsr Delay
+224b 16 23 03                           jsr Delay
 224e 04 31 eb                           dbne B,loop1`           ;hasta aqui se estan mandando los comando iniciales de dsp
 2251 1d 10 06 20                        bclr BANDERAS,$20
 2255 b6 10 27                           ldaa Clear_LCD
-2258 16 22 b3                           jsr Send                ;hasta aqui se borra la pantalla
-225b 30                                 pulx
-225c b6 10 28                           ldaa ADD_L1                        ;aqui empieza cargar lcd
-225f 1d 10 06 20                        bclr BANDERAS,$20
-2263 16 22 b3                           jsr Send
-2266 18 0c 10 26 10 23                  movb D60uS,CONT_DELAY
-226c 16 22 fa                           jsr Delay
-226f a6 30              loop2`          ldaa 1,X+
-2271 81 00                              cmpa #FIN
-2273 27 12                              beq linea2`
-2275 1c 10 06 20                        bset BANDERAS,$20
-2279 16 22 b3                           jsr Send
-227c 18 0c 10 26 10 23                  movb D60uS,CONT_DELAY
-2282 16 22 fa                           jsr Delay
-2285 20 e8                              bra loop2`
-2287 b6 10 29           linea2`         ldaa ADD_L2                        ;aqui empieza cargar la linea 2
-228a 1d 10 06 20                        bclr BANDERAS,$20
-228e 16 22 b3                           jsr Send
-2291 18 0c 10 26 10 23                  movb D60uS,CONT_DELAY
-2297 16 22 fa                           jsr Delay
-229a a6 70              loop3`          ldaa 1,Y+
-229c 81 00                              cmpa #FIN
-229e 27 12                              beq returnLCD`
-22a0 1c 10 06 20                        bset BANDERAS,$20
-22a4 16 22 b3                           jsr Send
-22a7 18 0c 10 26 10 23                  movb D60uS,CONT_DELAY
-22ad 16 22 fa                           jsr Delay
-22b0 20 e8                              bra loop3`
-22b2 3d                 returnLCD`      rts
+2258 16 22 bc                           jsr Send                ;hasta aqui se borra la pantalla
+225b 18 0c 10 24 10 23                  movb D2mS,CONT_DELAY
+2261 16 23 03                           jsr Delay
+2264 30                                 pulx
+2265 b6 10 28                           ldaa ADD_L1                        ;aqui empieza cargar lcd
+2268 1d 10 06 20                        bclr BANDERAS,$20
+226c 16 22 bc                           jsr Send
+226f 18 0c 10 26 10 23                  movb D60uS,CONT_DELAY
+2275 16 23 03                           jsr Delay
+2278 a6 30              loop2`          ldaa 1,X+
+227a 81 00                              cmpa #FIN
+227c 27 12                              beq linea2`
+227e 1c 10 06 20                        bset BANDERAS,$20
+2282 16 22 bc                           jsr Send
+2285 18 0c 10 26 10 23                  movb D60uS,CONT_DELAY
+228b 16 23 03                           jsr Delay
+228e 20 e8                              bra loop2`
+2290 b6 10 29           linea2`         ldaa ADD_L2                        ;aqui empieza cargar la linea 2
+2293 1d 10 06 20                        bclr BANDERAS,$20
+2297 16 22 bc                           jsr Send
+229a 18 0c 10 26 10 23                  movb D60uS,CONT_DELAY
+22a0 16 23 03                           jsr Delay
+22a3 a6 70              loop3`          ldaa 1,Y+
+22a5 81 00                              cmpa #FIN
+22a7 27 12                              beq returnLCD`
+22a9 1c 10 06 20                        bset BANDERAS,$20
+22ad 16 22 bc                           jsr Send
+22b0 18 0c 10 26 10 23                  movb D60uS,CONT_DELAY
+22b6 16 23 03                           jsr Delay
+22b9 20 e8                              bra loop3`
+22bb 3d                 returnLCD`      rts
                         
                         
                         ;       SendCommand
                                         loc
-22b3 36                 Send:           psha
-22b4 84 f0                              anda #$F0
-22b6 44                                 lsra
-22b7 44                                 lsra
-22b8 5a 32                              staa PORTK
-22ba 1e 10 06 20 05                     brset BANDERAS,$20,dato1`
-22bf 4d 32 01                           bclr PORTK,$01
-22c2 20 03                              bra continue1`
-22c4 4c 32 01           dato1`           bset PORTK,$01
-22c7 4c 32 02           continue1`      bset PORTK,$02
-22ca 18 0c 10 25 10 23                  movb D240uS,CONT_DELAY
-22d0 16 22 fa                           jsr Delay
-22d3 4d 32 02                           bclr PORTK,$02
-22d6 32                                 pula
-22d7 84 0f                              anda #$0F
-22d9 48                                 lsla
-22da 48                                 lsla
-22db 5a 32                              staa PORTK
-22dd 1e 10 06 20 05                     brset BANDERAS,$20,dato2`
-22e2 4d 32 01                           bclr PORTK,$01
-22e5 20 03                              bra continue2`
-22e7 4c 32 01           dato2`          bset PORTK,$01
-22ea 4c 32 02           continue2`      bset PORTK,$02
-22ed 18 0c 10 25 10 23                  movb D240uS,CONT_DELAY
-22f3 16 22 fa                           jsr Delay
-22f6 4d 32 02                           bclr PORTK,$02
-22f9 3d                                 rts    
+22bc 36                 Send:           psha
+22bd 84 f0                              anda #$F0
+22bf 44                                 lsra
+22c0 44                                 lsra
+22c1 5a 32                              staa PORTK
+22c3 1e 10 06 20 05                     brset BANDERAS,$20,dato1`
+22c8 4d 32 01                           bclr PORTK,$01
+22cb 20 03                              bra continue1`
+22cd 4c 32 01           dato1`           bset PORTK,$01
+22d0 4c 32 02           continue1`      bset PORTK,$02
+22d3 18 0c 10 25 10 23                  movb D240uS,CONT_DELAY
+22d9 16 23 03                           jsr Delay
+22dc 4d 32 02                           bclr PORTK,$02
+22df 32                                 pula
+22e0 84 0f                              anda #$0F
+22e2 48                                 lsla
+22e3 48                                 lsla
+22e4 5a 32                              staa PORTK
+22e6 1e 10 06 20 05                     brset BANDERAS,$20,dato2`
+22eb 4d 32 01                           bclr PORTK,$01
+22ee 20 03                              bra continue2`
+22f0 4c 32 01           dato2`          bset PORTK,$01
+22f3 4c 32 02           continue2`      bset PORTK,$02
+22f6 18 0c 10 25 10 23                  movb D240uS,CONT_DELAY
+22fc 16 23 03                           jsr Delay
+22ff 4d 32 02                           bclr PORTK,$02
+2302 3d                                 rts    
                         
                         ;       Delay
                                         loc
-22fa f7 10 23           Delay:          tst CONT_DELAY 
-22fd 26 fb                              bne Delay
-22ff 3d                                 rts
+2303 f7 10 23           Delay:          tst CONT_DELAY 
+2306 26 fb                              bne Delay
+2308 3d                                 rts
                         
                         
                         ;       BIN_BCD
-2300                    BIN_BCD:        ;movb #$44,BCD1
+2309                    BIN_BCD:        ;movb #$44,BCD1
                                         ;movb #$44,BCD2
-2300 3d                                 rts
+2309 3d                                 rts
                         
                         ;       MODO_CONFIG
-2301 18 0b 01 10 09     MODO_CONFIG:    movb #$01,CPROG
+230a 18 0b 01 10 09     MODO_CONFIG:    movb #$01,CPROG
                                         ;movb #$11,BCD1
                                         ;movb #$11,BCD2
-2306 3d                                 rts
+230f 3d                                 rts
                         
                         ;       MODO_RUN
-2307                    MODO_RUN:       ;movb #$33,BCD1
+2310                    MODO_RUN:       ;movb #$33,BCD1
                                         ;movb #$33,BCD2
-2307 3d                                 rts
+2310 3d                                 rts
                         
                         
                         
@@ -1071,129 +1073,129 @@ eeb2                    WriteMem equ    $EEB2   ; FAR call
                         ;        subrutina de PHO
                         
                                         loc
-2308 1e 02 67 01 0f     PTH_ISR:        brset PIFH,$01,PH0_ISR 
-230d 1e 02 67 02 2c                     brset PIFH,$02,PH1_ISR
-2312 1e 02 67 04 2c                     brset PIFH,$04,PH2_ISR
-2317 1e 02 67 08 37                     brset PIFH,$08,PH3_ISR
+2311 1e 02 67 01 0f     PTH_ISR:        brset PIFH,$01,PH0_ISR 
+2316 1e 02 67 02 2c                     brset PIFH,$02,PH1_ISR
+231b 1e 02 67 04 2c                     brset PIFH,$04,PH2_ISR
+2320 1e 02 67 08 37                     brset PIFH,$08,PH3_ISR
                         
                         ;       subrutina PH1
-231c 1c 02 67 01        PH0_ISR:        bset PIFH, $01          
-2320 1f 10 06 04 1d                     brclr BANDERAS,$04,returnPH        ;Si la bandera de array_ok no esta en alto ignorar subrutina
-2325 1d 10 06 04                        bclr BANDERAS, $04                  ;limpiar la bandera
-2329 cd 10 30                           ldy #NUM_ARRAY
-232c b6 10 00                           ldaa MAX_TCL
-232f e6 70              loop`           ldab 1,Y+
-2331 c1 ff                              cmpb #$FF                           ;primera condicion de parada
-2333 27 0d                              beq returnPH
-2335 18 08 5f ff                        movb #$FF,-1,Y
-2339 04 30 f3                           dbne A,loop`
-233c 20 04                              bra returnPH
+2325 1c 02 67 01        PH0_ISR:        bset PIFH, $01          
+2329 1f 10 06 04 1d                     brclr BANDERAS,$04,returnPH        ;Si la bandera de array_ok no esta en alto ignorar subrutina
+232e 1d 10 06 04                        bclr BANDERAS, $04                  ;limpiar la bandera
+2332 cd 10 30                           ldy #NUM_ARRAY
+2335 b6 10 00                           ldaa MAX_TCL
+2338 e6 70              loop`           ldab 1,Y+
+233a c1 ff                              cmpb #$FF                           ;primera condicion de parada
+233c 27 0d                              beq returnPH
+233e 18 08 5f ff                        movb #$FF,-1,Y
+2342 04 30 f3                           dbne A,loop`
+2345 20 04                              bra returnPH
                         
                         
                         
                         
                         ;       subrutina PH1
-233e 1c 02 67 02        PH1_ISR:        bset PIFH, $02
+2347 1c 02 67 02        PH1_ISR:        bset PIFH, $02
                         
-2342 0b                 returnPH:       rti
+234b 0b                 returnPH:       rti
                         ;       subrutina PH2                
-2343 1c 02 67 04        PH2_ISR:        bset PIFH, $04
-2347 b6 10 0d                           ldaa BRILLO
-234a 27 f6                              beq returnPH
-234c 80 05                              suba #5
-234e 7a 10 0d                           staa BRILLO
-2351 20 ef                              bra returnPH
+234c 1c 02 67 04        PH2_ISR:        bset PIFH, $04
+2350 b6 10 0d                           ldaa BRILLO
+2353 27 f6                              beq returnPH
+2355 80 05                              suba #5
+2357 7a 10 0d                           staa BRILLO
+235a 20 ef                              bra returnPH
                         ;       subrutina PH3
-2353 1c 02 67 08        PH3_ISR:        bset PIFH, $08
-2357 b6 10 0d                           ldaa BRILLO
-235a 81 64                              cmpa #100
-235c 27 e4                              beq returnPH
-235e 8b 05                              adda #5
-2360 7a 10 0d                           staa BRILLO
-2363 20 dd                              bra returnPH                
+235c 1c 02 67 08        PH3_ISR:        bset PIFH, $08
+2360 b6 10 0d                           ldaa BRILLO
+2363 81 64                              cmpa #100
+2365 27 e4                              beq returnPH
+2367 8b 05                              adda #5
+2369 7a 10 0d                           staa BRILLO
+236c 20 dd                              bra returnPH                
                         
                         
                         
                         ;       subrutina de rti
                                         loc
-2365 4c 37 80           INIT_ISR:       bset CRGFLG, $80
-2368 f7 10 03                           tst CONT_REB
-236b 27 03                              beq return`
-236d 73 10 03                           dec CONT_REB
-2370 0b                 return`         rti
+236e 4c 37 80           INIT_ISR:       bset CRGFLG, $80
+2371 f7 10 03                           tst CONT_REB
+2374 27 03                              beq return`
+2376 73 10 03                           dec CONT_REB
+2379 0b                 return`         rti
                         
                         
                         ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                         ;   Subrutina OC4
                                         loc
-2371 b6 10 0f           OC4_ISR:        ldaa CONT_TICKS
-2374 c6 64                              ldab #100
-2376 f0 10 0d                           subb BRILLO
-2379 18 17                              cba
-237b 27 0f                              beq apagar`
-237d f7 10 0f                           tst CONT_TICKS
-2380 27 2c                              beq check_digit`
-2382 81 64              checkN`         cmpa #100
-2384 27 12                              beq changeDigit`
-2386 72 10 0f           incticks`       inc CONT_TICKS
-2389 06 24 0e                           jmp part2`
+237a b6 10 0f           OC4_ISR:        ldaa CONT_TICKS
+237d c6 64                              ldab #100
+237f f0 10 0d                           subb BRILLO
+2382 18 17                              cba
+2384 27 0f                              beq apagar`
+2386 f7 10 0f                           tst CONT_TICKS
+2389 27 2c                              beq check_digit`
+238b 81 64              checkN`         cmpa #100
+238d 27 12                              beq changeDigit`
+238f 72 10 0f           incticks`       inc CONT_TICKS
+2392 06 24 17                           jmp part2`
                         ;Apagar
-238c 18 0b ff 02 58     apagar`         movb #$FF,PTP
-2391 18 0b 00 00 01                     movb #$0, PORTB
-2396 20 ea                              bra checkN`
+2395 18 0b ff 02 58     apagar`         movb #$FF,PTP
+239a 18 0b 00 00 01                     movb #$0, PORTB
+239f 20 ea                              bra checkN`
                         ;           cambiar digito
-2398 18 0b 00 10 0f     changeDigit`    movb #$0, CONT_TICKS
-239d 72 10 0e                           inc CONT_DIG
-23a0 86 06                              ldaa #6
-23a2 b1 10 0e                           cmpa CONT_DIG
-23a5 26 67                              bne part2`
-23a7 18 0b 01 10 0e                     movb #1,CONT_DIG
-23ac 20 60                              bra part2`
+23a1 18 0b 00 10 0f     changeDigit`    movb #$0, CONT_TICKS
+23a6 72 10 0e                           inc CONT_DIG
+23a9 86 06                              ldaa #6
+23ab b1 10 0e                           cmpa CONT_DIG
+23ae 26 67                              bne part2`
+23b0 18 0b 01 10 0e                     movb #1,CONT_DIG
+23b5 20 60                              bra part2`
                         ;           encender digito
-23ae b6 10 0e           check_digit`    ldaa CONT_DIG
-23b1 81 01                              cmpa #1
-23b3 26 10                              bne dig2`
-23b5 1d 02 58 08                        bclr PTP, $08
-23b9 18 0c 10 16 00 01                  movb DISP1, PORTB
-23bf 1c 02 68 02                        bset PTJ, $02
-23c3 20 c1                              bra  incticks`
-23c5 81 02              dig2`           cmpa #2
-23c7 26 10                              bne dig3`
-23c9 1d 02 58 04                        bclr PTP, $04
-23cd 18 0c 10 17 00 01                  movb DISP2, PORTB
-23d3 1c 02 68 02                        bset PTJ, $02
-23d7 20 ad                              bra  incticks`
-23d9 81 03              dig3`           cmpa #3
-23db 26 10                              bne dig4`
-23dd 1d 02 58 02                        bclr PTP, $02
-23e1 18 0c 10 18 00 01                  movb DISP3, PORTB
-23e7 1c 02 68 02                        bset PTJ, $02
-23eb 20 99                              bra  incticks`
-23ed 81 04              dig4`           cmpa #4
-23ef 26 10                              bne digleds`
-23f1 1d 02 58 01                        bclr PTP, $01
-23f5 18 0c 10 19 00 01                  movb DISP4, PORTB
-23fb 1c 02 68 02                        bset PTJ, $02
-23ff 20 85                              bra  incticks`
-2401 18 0c 10 0c 00 01  digleds`        movb LEDS, PORTB
-2407 1d 02 68 02                        bclr PTJ, $02
-240b 72 10 0f                           inc CONT_TICKS
+23b7 b6 10 0e           check_digit`    ldaa CONT_DIG
+23ba 81 01                              cmpa #1
+23bc 26 10                              bne dig2`
+23be 1d 02 58 08                        bclr PTP, $08
+23c2 18 0c 10 16 00 01                  movb DISP1, PORTB
+23c8 1c 02 68 02                        bset PTJ, $02
+23cc 20 c1                              bra  incticks`
+23ce 81 02              dig2`           cmpa #2
+23d0 26 10                              bne dig3`
+23d2 1d 02 58 04                        bclr PTP, $04
+23d6 18 0c 10 17 00 01                  movb DISP2, PORTB
+23dc 1c 02 68 02                        bset PTJ, $02
+23e0 20 ad                              bra  incticks`
+23e2 81 03              dig3`           cmpa #3
+23e4 26 10                              bne dig4`
+23e6 1d 02 58 02                        bclr PTP, $02
+23ea 18 0c 10 18 00 01                  movb DISP3, PORTB
+23f0 1c 02 68 02                        bset PTJ, $02
+23f4 20 99                              bra  incticks`
+23f6 81 04              dig4`           cmpa #4
+23f8 26 10                              bne digleds`
+23fa 1d 02 58 01                        bclr PTP, $01
+23fe 18 0c 10 19 00 01                  movb DISP4, PORTB
+2404 1c 02 68 02                        bset PTJ, $02
+2408 20 85                              bra  incticks`
+240a 18 0c 10 0c 00 01  digleds`        movb LEDS, PORTB
+2410 1d 02 68 02                        bclr PTJ, $02
+2414 72 10 0f                           inc CONT_TICKS
                         
                         
-240e f7 10 23           part2`          tst CONT_DELAY
-2411 27 03                              beq tst7seg`
-2413 73 10 23                           dec CONT_DELAY
-2416 fe 10 21           tst7seg`        ldx CONT_7SEG
-2419 27 0c                              beq JBCD_7SEG`
-241b 08                                 inx
-241c 7e 10 21                           stx CONT_7SEG
-241f dc 44              returnOC4       ldd TCNT
-2421 c3 00 3c                           addd #60
-2424 5c 58                              std TC4
-2426 0b                                 rti
-2427 16 22 10           JBCD_7SEG`      jsr BCD_7SEG
-242a 20 f3                              bra returnOC4
+2417 f7 10 23           part2`          tst CONT_DELAY
+241a 27 03                              beq tst7seg`
+241c 73 10 23                           dec CONT_DELAY
+241f fe 10 21           tst7seg`        ldx CONT_7SEG
+2422 27 0c                              beq JBCD_7SEG`
+2424 08                                 inx
+2425 7e 10 21                           stx CONT_7SEG
+2428 dc 44              returnOC4       ldd TCNT
+242a c3 00 3c                           addd #60
+242d 5c 58                              std TC4
+242f 0b                                 rti
+2430 16 22 10           JBCD_7SEG`      jsr BCD_7SEG
+2433 20 f3                              bra returnOC4
 
-Executed: Sun Nov 03 00:27:56 2019
-Total cycles: 1193, Total bytes: 1159
+Executed: Sun Nov 03 00:54:32 2019
+Total cycles: 1203, Total bytes: 1168
 Total errors: 0, Total warnings: 0
