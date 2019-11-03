@@ -29,7 +29,7 @@ TECLA_IN:       ds 1
 CONT_REB:       ds 1
 CONT_TCL:       ds 1
 PATRON:         ds 1
-BANDERAS:       ds 1
+BANDERAS:       ds 1        ;bit 5 cambio nodo, bit 4 modsel, bit 6 rs
 
 
                 org $1030
@@ -62,8 +62,23 @@ SEGMENT:        db $3F,$06,$5B,$4F,$66,$6D,$7D,$07,$7F,$6F  ;0,1,2,3,4,5,6,7,8,9
                 org $1021
 CONT_7SEG:      ds 2        ;cuando llega a 5000 se actualizan los valores de DISP
 CONT_DELAY:     ds 1        ;
+D2mS:           db 100
+D240uS:         db 13
+D60uS:          db 3
+Clear_LCD:      db $01      ;constante igual a comando clear
+ADD_L1:         db $80      ;constante igual a Adress linea 1 lcd
+ADD_L2:         db $C0      ;constante igual a Adress linea 2 lcd
+iniDsp:         db 04,$28,$28,$06,$0C     ;numero de bytes,function set, function set, entry mode, display on off
 
-
+                org $1070
+MESS1:          fcc "MODO CONFIG"
+                db FIN
+MESS2:          fcc "INGRESE CPROG"
+                db FIN
+MESS3:          fcc "MODO RUN"
+                db FIN
+MESS4:          fcc "ACUMUL.-CUENTA"
+                db FIN
 ;FIXME faltan, pero estoy cansado
 
 
@@ -73,7 +88,7 @@ CONT_DELAY:     ds 1        ;
                 org $3E70
                 dw INIT_ISR
                 org $3E4C
-                dw PTH0_ISR
+                dw PTH_ISR
                 org $3E66
                 dw OC4_ISR
 
@@ -100,13 +115,14 @@ CONT_DELAY:     ds 1        ;
                 movb #$00, TCTL2
                 movb #$10, TIE
                 ldd TCNT
-                addd #600
+                addd #60
                 std TC4
+                movb #$FF,DDRK
 
+;       Puerto H sw
 
-
-                bset PIEH, $01          ;habilitar interrupciones PH0
-                bset PIFH, $01
+                bset PIEH, $0F          ;habilitar interrupciones PH0
+                bset PIFH, $0F
                 movb #$49, RTICTL       ;FIXME, esto lo pone en 9.26 ms
                 bset CRGINT, $80        ;habilitar interrupciones rti
                 movb #$F0, DDRA
@@ -131,22 +147,66 @@ CONT_DELAY:     ds 1        ;
                 movb #1,CONT_DIG
                 movb #0,CONT_TICKS
                 movb #50, BRILLO
+                movb #00, CPROG
 
                 movb #$FF, TECLA
                 movb #$FF, TECLA_IN
                 movb #$00, CONT_TCL
                 movb #$00, CONT_REB
                 bclr BANDERAS,$07      ;Poner las banderas en 0
+                bset BANDERAS,$10      ;Poner la bandera cambio nodo en 1
                 ldaa MAX_TCL
                 ldx #NUM_ARRAY-1
 LoopCLR:        movb #$FF,A,X          ;iniciar el arreglo en FF
                 dbne A,LoopCLR
 
 
-;       Programa                
-mainL:          brset BANDERAS,$04,mainL
-                jsr TAREA_TECLADO
-                bra mainL
+;       Programa main               
+mainL:          loc
+                tst CPROG
+                beq chknodoM1
+                ldaa PTIH
+                anda #$80
+                ldab BANDERAS
+                andb #$08
+                lslb 
+                lslb 
+                lslb 
+                lslb 
+                cba
+                beq nochange`
+                bset BANDERAS,$10
+                cmpa #$80
+                beq ph1`
+                bclr BANDERAS,$08
+                bra nochange`
+ph1`            bset BANDERAS,$08
+
+nochange`       brclr BANDERAS,$08,chknodoM0
+chknodoM1:      brclr BANDERAS,$10,jmodoconfig`
+                bclr BANDERAS,$10
+                movb #$02,LEDS
+                ldx #MESS3
+                ldy #MESS4
+                jsr CARGAR_LCD
+jmodoconfig`    jsr MODO_CONFIG
+                bra returnmain
+chknodoM0:      brclr BANDERAS,$10,jmodorun`
+                bclr BANDERAS,$10
+                movb #$01,LEDS
+                ldx #MESS1
+                ldy #MESS2
+                jsr CARGAR_LCD
+jmodorun`       jsr MODO_RUN
+              
+returnmain:     jsr BIN_BCD
+                jmp mainL
+
+
+
+                ;brset BANDERAS,$04,mainL
+                ;jsr TAREA_TECLADO
+                
 ;################################################
 ;       Subrutinas
 ;################################################
@@ -266,6 +326,104 @@ subrutinabcd`   pshb
 returnBCD_7SEG: rts
 
 
+;       CARGAR_LCD
+CARGAR_LCD:     loc
+                pshx
+                ldx #iniDsp
+                ldab 1,X+
+loop1`          ldaa 1,X+
+                bclr BANDERAS,$20
+                jsr Send
+                movb D60uS,CONT_DELAY
+                jsr Delay
+                dbne B,loop1`           ;hasta aqui se estan mandando los comando iniciales de dsp
+                bclr BANDERAS,$20
+                ldaa Clear_LCD
+                jsr Send                ;hasta aqui se borra la pantalla
+                pulx
+                ldaa ADD_L1                        ;aqui empieza cargar lcd
+                bclr BANDERAS,$20
+                jsr Send
+                movb D60uS,CONT_DELAY
+                jsr Delay
+loop2`          ldaa 1,X+
+                cmpa #FIN
+                beq linea2`
+                bset BANDERAS,$20
+                jsr Send
+                movb D60uS,CONT_DELAY
+                jsr Delay
+                bra loop2`
+linea2`         ldaa ADD_L2                        ;aqui empieza cargar la linea 2
+                bclr BANDERAS,$20
+                jsr Send
+                movb D60uS,CONT_DELAY
+                jsr Delay
+loop3`          ldaa 1,Y+
+                cmpa #FIN
+                beq returnLCD`
+                bset BANDERAS,$20
+                jsr Send
+                movb D60uS,CONT_DELAY
+                jsr Delay
+                bra loop3`
+returnLCD`      rts
+
+
+;       SendCommand
+                loc
+Send:           psha
+                anda #$F0
+                lsra
+                lsra
+                staa PORTK
+                brset BANDERAS,$20,dato1`
+                bclr PORTK,$01
+                bra continue1`
+dato1`           bset PORTK,$01
+continue1`      bset PORTK,$02
+                movb D240uS,CONT_DELAY
+                jsr Delay
+                bclr PORTK,$02
+                pula
+                anda #$0F
+                lsla
+                lsla
+                staa PORTK
+                brset BANDERAS,$20,dato2`
+                bclr PORTK,$01
+                bra continue2`
+dato2`          bset PORTK,$01
+continue2`      bset PORTK,$02
+                movb D240uS,CONT_DELAY
+                jsr Delay
+                bclr PORTK,$02
+                rts    
+
+;       Delay
+                loc
+Delay:          tst CONT_DELAY 
+                bne Delay
+                rts
+
+
+;       BIN_BCD
+BIN_BCD:        ;movb #$44,BCD1
+                ;movb #$44,BCD2
+                rts
+
+;       MODO_CONFIG
+MODO_CONFIG:    movb #$01,CPROG
+                ;movb #$11,BCD1
+                ;movb #$11,BCD2
+                rts
+
+;       MODO_RUN
+MODO_RUN:       ;movb #$33,BCD1
+                ;movb #$33,BCD2
+                rts
+
+
 
 
 
@@ -274,22 +432,52 @@ returnBCD_7SEG: rts
 ;################################################
 ;       Subrutinas de proposito especifico
 
-
+;       Subrutinas PH
 ;        subrutina de PHO
 
                 loc
-PTH0_ISR:       bset PIFH, $01          
-                brclr BANDERAS,$04,returnPH0        ;Si la bandera de array_ok no esta en alto ignorar subrutina
+PTH_ISR:        brset PIFH,$01,PH0_ISR 
+                brset PIFH,$02,PH1_ISR
+                brset PIFH,$04,PH2_ISR
+                brset PIFH,$08,PH3_ISR
+
+;       subrutina PH1
+PH0_ISR:        bset PIFH, $01          
+                brclr BANDERAS,$04,returnPH        ;Si la bandera de array_ok no esta en alto ignorar subrutina
                 bclr BANDERAS, $04                  ;limpiar la bandera
                 ldy #NUM_ARRAY
                 ldaa MAX_TCL
 loop`           ldab 1,Y+
                 cmpb #$FF                           ;primera condicion de parada
-                beq returnPH0
+                beq returnPH
                 movb #$FF,-1,Y
                 dbne A,loop`
+                bra returnPH
 
-returnPH0:      rti
+
+
+
+;       subrutina PH1
+PH1_ISR:        bset PIFH, $02
+
+returnPH:       rti
+;       subrutina PH2                
+PH2_ISR:        bset PIFH, $04
+                ldaa BRILLO
+                beq returnPH
+                suba #5
+                staa BRILLO
+                bra returnPH
+;       subrutina PH3
+PH3_ISR:        bset PIFH, $08
+                ldaa BRILLO
+                cmpa #100
+                beq returnPH
+                adda #5
+                staa BRILLO
+                bra returnPH                
+
+
 
 ;       subrutina de rti
                 loc
@@ -304,19 +492,20 @@ return`         rti
 ;   Subrutina OC4
                 loc
 OC4_ISR:        ldaa CONT_TICKS
-                beq check_digit`
                 ldab #100
                 subb BRILLO
                 cba
                 beq apagar`
-                cmpa #100
+                tst CONT_TICKS
+                beq check_digit`
+checkN`         cmpa #100
                 beq changeDigit`
 incticks`       inc CONT_TICKS
                 jmp part2`
 ;Apagar
 apagar`         movb #$FF,PTP
                 movb #$0, PORTB
-                bra incticks`
+                bra checkN`
 ;           cambiar digito
 changeDigit`    movb #$0, CONT_TICKS
                 inc CONT_DIG
