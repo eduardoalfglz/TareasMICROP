@@ -193,9 +193,15 @@ nochange`       brclr BANDERAS,$08,chknodoM0
 chknodoM1:      brclr BANDERAS,$10,jmodoconfig`
                 bclr BANDERAS,$10
                 movb #$02,LEDS
+                movb CPROG,BIN1
+                movb #0,BIN2
+                movb #0,ACUMUL
+                movb #0,CUENTA
                 ldx #MESS1
                 ldy #MESS2
                 jsr CARGAR_LCD
+                
+
 jmodoconfig`    jsr MODO_CONFIG
                 bra returnmain
 chknodoM0:      brclr BANDERAS,$10,jmodorun`
@@ -230,7 +236,7 @@ TAREA_TECLADO:  loc
                 brset BANDERAS,$02,checkLeida`        ;revision de bandera Tecla leida
                 movb TECLA,TECLA_IN
                 bset BANDERAS,$02
-                movb #50,CONT_REB                       ;iniciar contador de rebotes
+                movb #30,CONT_REB                       ;iniciar contador de rebotes
                 bra return`
 checkLeida`     cmpa TECLA_IN                           ;Comparar Tecla con tecla_in
                 bne Diferente`
