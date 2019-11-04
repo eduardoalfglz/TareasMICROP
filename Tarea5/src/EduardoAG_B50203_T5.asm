@@ -79,7 +79,9 @@ MESS3:          fcc "MODO RUN"
                 db FIN
 MESS4:          fcc "ACUMUL.-CUENTA"
                 db FIN
-;FIXME faltan, pero estoy cansado
+TEMP:           ds 1
+BCD_t:          ds 1
+
 
 
 
@@ -123,11 +125,13 @@ MESS4:          fcc "ACUMUL.-CUENTA"
 
                 bset PIEH, $0F          ;habilitar interrupciones PH0
                 bset PIFH, $0F
-                movb #$49, RTICTL       ;FIXME, esto lo pone en 9.26 ms
+                movb #$17, RTICTL       ; esto lo pone en 1.024 ms
                 bset CRGINT, $80        ;habilitar interrupciones rti
                 movb #$F0, DDRA
                 bset PUCR, $01          ;Super importante habilitar resistencia de pullup
 ;                bclr RDRIV, $01
+;       Puerto E rele
+                bset DDRE,$04
                 cli
 
 
@@ -136,8 +140,10 @@ MESS4:          fcc "ACUMUL.-CUENTA"
 
 ;               inicializacion
                 lds #$3BFF
-                movb #$18,BCD1
-                movb #$45,BCD2
+                movb #$00,BCD1
+                movb #$00,BCD2
+                movb #$00,BIN2
+                movb #$00,BIN1
                 movb #02,LEDS
                 movb #0,DISP1
                 movb #0,DISP2
@@ -148,6 +154,7 @@ MESS4:          fcc "ACUMUL.-CUENTA"
                 movb #0,CONT_TICKS
                 movb #50, BRILLO
                 movb #00, CPROG
+                movb VMAX,TIMER_CUENTA
 
                 movb #$FF, TECLA
                 movb #$FF, TECLA_IN
@@ -186,16 +193,16 @@ nochange`       brclr BANDERAS,$08,chknodoM0
 chknodoM1:      brclr BANDERAS,$10,jmodoconfig`
                 bclr BANDERAS,$10
                 movb #$02,LEDS
-                ldx #MESS3
-                ldy #MESS4
+                ldx #MESS1
+                ldy #MESS2
                 jsr CARGAR_LCD
 jmodoconfig`    jsr MODO_CONFIG
                 bra returnmain
 chknodoM0:      brclr BANDERAS,$10,jmodorun`
                 bclr BANDERAS,$10
                 movb #$01,LEDS
-                ldx #MESS1
-                ldy #MESS2
+                ldx #MESS3
+                ldy #MESS4
                 jsr CARGAR_LCD
 jmodorun`       jsr MODO_RUN
               
@@ -204,8 +211,7 @@ returnmain:     jsr BIN_BCD
 
 
 
-                ;brset BANDERAS,$04,mainL
-                ;jsr TAREA_TECLADO
+                
                 
 ;################################################
 ;       Subrutinas
@@ -224,7 +230,7 @@ TAREA_TECLADO:  loc
                 brset BANDERAS,$02,checkLeida`        ;revision de bandera Tecla leida
                 movb TECLA,TECLA_IN
                 bset BANDERAS,$02
-                movb #$64,CONT_REB                       ;iniciar contador de rebotes
+                movb #50,CONT_REB                       ;iniciar contador de rebotes
                 bra return`
 checkLeida`     cmpa TECLA_IN                           ;Comparar Tecla con tecla_in
                 bne Diferente`
@@ -410,19 +416,109 @@ Delay:          tst CONT_DELAY
 
 
 ;       BIN_BCD
-BIN_BCD:        ;movb #$44,BCD1
-                ;movb #$44,BCD2
+                loc
+BIN_BCD:        ldab #14
+                movb #0,BCD_t
+                ldaa BIN1   ;inicio con bcd1
+                ldx #BCD_t    
+                bra loop`
+changeBCD`      lsla
+                rol 0,X
+                ldaa BIN2   ;continua con bcd2
+                movb BCD_t,BCD1
+                movb #0,BCD_t    
+loop`           lsla
+                rol 0,X
+                staa TEMP
+                ldaa 0,X
+                anda #$0F
+                cmpa #5
+                blt continue1`
+                adda #3
+continue1`      staa LOW 
+                ldaa 0,X
+                anda #$F0
+                cmpa #$50
+                blt continue2`
+                adda #$30
+continue2`      adda LOW
+                staa 0,X
+                ldaa TEMP
+                decb
+                cmpb #7
+                beq changeBCD`
+                cmpb #$0 
+                bne loop`
+                lsla
+                rol 0,X
+                movb BCD_t,BCD2                             
                 rts
+
+;       BCD_BIN
+                loc
+BCD_BIN:        ldx #NUM_ARRAY
+                ldaa 1,X
+                cmpa #$FF       ;verifica que el segundo numero no sea FF
+                beq wrong`
+                ldaa #0
+loop`           cmpa #0
+                beq mul10`;
+                addb A,X    
+                bra sumarA`
+mul10`          ldab A,X
+                lslb
+                lslb
+                lslb        ;mult por 8
+                addb A,X
+                addb A,X    ;mult por 10
+sumarA`         movb #$FF,A,X
+                inca
+                cmpa MAX_TCL
+                bne loop`
+                stab CPROG 
+                bra return`
+wrong`          movb #$FF,NUM_ARRAY
+                movb #$0,CPROG
+return`         rts
 
 ;       MODO_CONFIG
-MODO_CONFIG:    movb #$01,CPROG
-                ;movb #$11,BCD1
-                ;movb #$11,BCD2
-                rts
+MODO_CONFIG:    loc
+                bclr PIEH,$03
+                brclr BANDERAS,$04,jtarea_teclado`
+                jsr BCD_BIN
+                bclr BANDERAS,$04
+                ldaa CPROG
+                cmpa #96
+                bgt resetCPROG`
+                cmpa #12
+                blt resetCPROG`
+                movb CPROG,BIN1
+                movb #0,BIN2
+                bra returnCofig
+jtarea_teclado` jsr TAREA_TECLADO
+                bra returnCofig
+resetCPROG`     movb #0,CPROG
+returnCofig:    rts
 
 ;       MODO_RUN
-MODO_RUN:       ;movb #$33,BCD1
-                ;movb #$33,BCD2
+MODO_RUN:       bset PIEH,$03
+                ldaa CPROG
+                cmpa CUENTA
+                beq returnRUN`
+                tst TIMER_CUENTA
+                bne returnRUN`
+                movb VMAX,TIMER_CUENTA
+                inc CUENTA
+                cmpa CUENTA
+                bne returnRUN`
+                inc ACUMUL
+                bset PORTE,$04
+                ldaa ACUMUL
+                cmpa #100
+                bne returnRUN`
+                movb #0,ACUMUL
+returnRUN`      movb CUENTA,BIN1
+                movb ACUMUL,BIN2                            
                 rts
 
 
@@ -445,23 +541,20 @@ PTH_ISR:        brset PIFH,$01,PH0_ISR
 
 ;       subrutina PH1
 PH0_ISR:        bset PIFH, $01          
-                brclr BANDERAS,$04,returnPH        ;Si la bandera de array_ok no esta en alto ignorar subrutina
-                bclr BANDERAS, $04                  ;limpiar la bandera
-                ldy #NUM_ARRAY
-                ldaa MAX_TCL
-loop`           ldab 1,Y+
-                cmpb #$FF                           ;primera condicion de parada
-                beq returnPH
-                movb #$FF,-1,Y
-                dbne A,loop`
+                bclr PORTE,$04
+                tst CONT_REB
+                bne returnPH
+                movb #0,CUENTA
+                movb #50,CONT_REB
                 bra returnPH
 
-
-
-
 ;       subrutina PH1
-PH1_ISR:        bset PIFH, $02
-
+PH1_ISR:        bset PIFH, $02          
+                bclr PORTE,$04
+                tst CONT_REB
+                bne returnPH
+                movb #0,ACUMUL
+                movb #50,CONT_REB
 returnPH:       rti
 ;       subrutina PH2                
 PH2_ISR:        bset PIFH, $04
@@ -485,8 +578,11 @@ PH3_ISR:        bset PIFH, $08
                 loc
 INIT_ISR:       bset CRGFLG, $80
                 tst CONT_REB
-                beq return`
+                beq chktimercnt
                 dec CONT_REB
+chktimercnt:    tst TIMER_CUENTA
+                beq return`
+                dec TIMER_CUENTA
 return`         rti
 
 
