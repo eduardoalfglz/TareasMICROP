@@ -5,7 +5,7 @@
 ;               Eduardo Alfaro Gonzalez
 ;               B50203
 ;               Pantalla
-;               Ultima vez modificado 1/11/19
+;               Ultima vez modificado 4/11/19
 ;
 ;
 ;#################################################################
@@ -53,10 +53,10 @@ DT:             ds 1        ;100 - BRILLO, valor donde se resetea CONT_TICKS
 LOW:            ds 1        ;ni idea
 BCD1:           ds 1        ;bin 1 en bcd
 BCD2:           ds 1        ;bin 2 en bcd
-DISP1:          ds 1        ;
-DISP2:          ds 1        ;
-DISP3:          ds 1        ;
-DISP4:          ds 1        ;   
+DISP1:          ds 1        ;izquierda bcd1
+DISP2:          ds 1        ;derecha bcd1
+DISP3:          ds 1        ;izquierda bcd 2
+DISP4:          ds 1        ;derecha bcd2   
                 org $1050
 SEGMENT:        db $3F,$06,$5B,$4F,$66,$6D,$7D,$07,$7F,$6F  ;0,1,2,3,4,5,6,7,8,9
                 org $1021
@@ -119,14 +119,17 @@ BCD_t:          ds 1
                 ldd TCNT
                 addd #60
                 std TC4
+                
                 movb #$FF,DDRK
 
 ;       Puerto H sw
 
-                bset PIEH, $0F          ;habilitar interrupciones PH0
+                bset PIEH, $0C          ;habilitar interrupciones PH
                 bset PIFH, $0F
+;       RTI                 
                 movb #$17, RTICTL       ; esto lo pone en 1.024 ms
                 bset CRGINT, $80        ;habilitar interrupciones rti
+;       Puerto A teclado                
                 movb #$F0, DDRA
                 bset PUCR, $01          ;Super importante habilitar resistencia de pullup
 ;                bclr RDRIV, $01
@@ -161,7 +164,7 @@ BCD_t:          ds 1
                 movb #$00, CONT_TCL
                 movb #$00, CONT_REB
                 bclr BANDERAS,$07      ;Poner las banderas en 0
-                bset BANDERAS,$10      ;Poner la bandera cambio nodo en 1
+                bset BANDERAS,$18      ;Poner la bandera cambio nodo en 1 y modo en 1
                 ldaa MAX_TCL
                 ldx #NUM_ARRAY-1
 LoopCLR:        movb #$FF,A,X          ;iniciar el arreglo en FF
@@ -197,6 +200,7 @@ chknodoM1:      brclr BANDERAS,$10,jmodoconfig`
                 movb #0,BIN2
                 movb #0,ACUMUL
                 movb #0,CUENTA
+                bclr PORTE,$04
                 ldx #MESS1
                 ldy #MESS2
                 jsr CARGAR_LCD
@@ -236,7 +240,7 @@ TAREA_TECLADO:  loc
                 brset BANDERAS,$02,checkLeida`        ;revision de bandera Tecla leida
                 movb TECLA,TECLA_IN
                 bset BANDERAS,$02
-                movb #30,CONT_REB                       ;iniciar contador de rebotes
+                movb #10,CONT_REB                       ;iniciar contador de rebotes
                 bra return`
 checkLeida`     cmpa TECLA_IN                           ;Comparar Tecla con tecla_in
                 bne Diferente`
@@ -274,7 +278,21 @@ p3:             inca                    ;A=3
                 cmpa PATRON             ;Se detecta cual patron se debe usar en la salida
                 bne nk
                 movb #$7F,PORTA
-read:           brclr PORTA,$01, treturn`       ;se leen las entradas para encontrar la tecla presionada
+read:           nop
+                nop
+                nop
+                nop
+                nop
+                nop
+                nop
+                nop
+                nop
+                nop
+                nop
+                nop
+                nop
+                nop                     ;corrige problema de primera fila
+                brclr PORTA,$01, treturn`       ;se leen las entradas para encontrar la tecla presionada
                 incb
                 brclr PORTA,$02, treturn`
                 incb
@@ -384,7 +402,7 @@ loop3`          ldaa 1,Y+
 returnLCD`      rts
 
 
-;       SendCommand
+;       Send
                 loc
 Send:           psha
                 anda #$F0
@@ -546,21 +564,21 @@ PTH_ISR:        brset PIFH,$01,PH0_ISR
                 brset PIFH,$08,PH3_ISR
 
 ;       subrutina PH1
-PH0_ISR:        bset PIFH, $01          
-                bclr PORTE,$04
+PH0_ISR:        bset PIFH, $01                          
                 tst CONT_REB
                 bne returnPH
                 movb #0,CUENTA
                 movb #50,CONT_REB
+                bclr PORTE,$04
                 bra returnPH
 
 ;       subrutina PH1
-PH1_ISR:        bset PIFH, $02          
-                bclr PORTE,$04
+PH1_ISR:        bset PIFH, $02                          
                 tst CONT_REB
                 bne returnPH
                 movb #0,ACUMUL
                 movb #50,CONT_REB
+                bclr PORTE,$04
 returnPH:       rti
 ;       subrutina PH2                
 PH2_ISR:        bset PIFH, $04
@@ -615,9 +633,9 @@ changeDigit`    movb #$0, CONT_TICKS
                 inc CONT_DIG
                 ldaa #6
                 cmpa CONT_DIG
-                bne part2`
+                bne jpart2`                 ;no me alcanzo para hacer el primer salto 
                 movb #1,CONT_DIG
-                bra part2`
+jpart2`         bra part2`
 ;           encender digito
 check_digit`    ldaa CONT_DIG
                 cmpa #1
@@ -629,21 +647,29 @@ check_digit`    ldaa CONT_DIG
 dig2`           cmpa #2
                 bne dig3`
                 bclr PTP, $04
+                ldaa DISP2
+                cmpa #$3F
+                beq ndig2`
                 movb DISP2, PORTB
                 bset PTJ, $02
-                bra  incticks`
+ndig2`          bra  incticks`
 dig3`           cmpa #3
                 bne dig4`
-                bclr PTP, $02
+                bclr PTP, $02                
+                brset BANDERAS,$08,ndig3`
                 movb DISP3, PORTB
                 bset PTJ, $02
-                bra  incticks`
+ndig3`          bra  incticks`
 dig4`           cmpa #4
                 bne digleds`
                 bclr PTP, $01
+                brset BANDERAS,$08,ndig4`
+                ldaa DISP4
+                cmpa #$3F
+                beq ndig4`
                 movb DISP4, PORTB
                 bset PTJ, $02
-                bra  incticks`
+ndig4`          jmp  incticks`
 digleds`        movb LEDS, PORTB
                 bclr PTJ, $02
                 inc CONT_TICKS
@@ -654,11 +680,12 @@ part2`          tst CONT_DELAY
                 dec CONT_DELAY
 tst7seg`        ldx CONT_7SEG
                 beq JBCD_7SEG`
-                inx
+                dex
                 stx CONT_7SEG
 returnOC4       ldd TCNT
                 addd #60
                 std TC4
                 rti
-JBCD_7SEG`      jsr BCD_7SEG
+JBCD_7SEG`      movw #5000,CONT_7SEG
+                jsr BCD_7SEG
                 bra returnOC4
