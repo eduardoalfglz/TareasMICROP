@@ -837,6 +837,6 @@ eeb2                    WriteMem equ    $EEB2   ; FAR call
 215d 73 10 03                           dec CONT_REB
 2160 0b                 return`         rti
 
-Executed: Mon Oct 21 23:10:16 2019
+Executed: Thu Oct 24 14:47:49 2019
 Total cycles: 394, Total bytes: 370
 Total errors: 0, Total warnings: 0

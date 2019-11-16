@@ -172,22 +172,21 @@ Print_Res:      loc
                 pshd
                 ldd #MESS2
                 ldx #0
-                jsr [PRINTF,X]
+                jsr [PRINTF,X]          ;Imprimir cantidad de valores encontrados
                 leas 2,SP
                 ldy #ENTERO
 LoopF`          ldx #0
                 ldab 1,Y+
-                pshy
+                pshy                    ;Guardar la posicion del puntero para que no se modifique por printf
                 pshb
-                ldab #0
+                ldab #0                 ;Guardo 0 para hacer el valor del tamano de D
                 pshb
                 ldd #MESS5
-                jsr [PRINTF,X]
+                jsr [PRINTF,X]          ;Imprime el numero y una coma
                 leas 2,SP
                 puly
                 dec CONT
-                ldaa CONT
-                cmpa #0
+                ldaa CONT               ;Check si todavia hay valores
                 bne LoopF`
                 rts
 

@@ -195,28 +195,27 @@ ee86                    PUTCHAR:        equ $EE86
 20d1 3b                                 pshd
 20d2 cc 11 78                           ldd #MESS2
 20d5 ce 00 00                           ldx #0
-20d8 15 e3 ee 88                        jsr [PRINTF,X]
+20d8 15 e3 ee 88                        jsr [PRINTF,X]          ;Imprimir cantidad de valores encontrados
 20dc 1b 82                              leas 2,SP
 20de cd 11 00                           ldy #ENTERO
 20e1 ce 00 00           LoopF`          ldx #0
 20e4 e6 70                              ldab 1,Y+
-20e6 35                                 pshy
+20e6 35                                 pshy                    ;Guardar la posicion del puntero para que no se modifique por printf
 20e7 37                                 pshb
-20e8 c6 00                              ldab #0
+20e8 c6 00                              ldab #0                 ;Guardo 0 para hacer el valor del tamano de D
 20ea 37                                 pshb
 20eb cc 11 c6                           ldd #MESS5
-20ee 15 e3 ee 88                        jsr [PRINTF,X]
+20ee 15 e3 ee 88                        jsr [PRINTF,X]          ;Imprime el numero y una coma
 20f2 1b 82                              leas 2,SP
 20f4 31                                 puly
 20f5 73 10 02                           dec CONT
-20f8 b6 10 02                           ldaa CONT
-20fb 81 00                              cmpa #0
-20fd 26 e2                              bne LoopF`
-20ff 3d                                 rts
+20f8 b6 10 02                           ldaa CONT               ;Check si todavia hay valores
+20fb 26 e4                              bne LoopF`
+20fd 3d                                 rts
                         
                         
                                         
 
-Executed: Wed Oct 02 23:43:51 2019
-Total cycles: 320, Total bytes: 409
+Executed: Wed Oct 16 16:57:43 2019
+Total cycles: 319, Total bytes: 407
 Total errors: 0, Total warnings: 0
