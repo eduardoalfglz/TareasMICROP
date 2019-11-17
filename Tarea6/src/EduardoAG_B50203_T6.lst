@@ -1,17 +1,17 @@
 
 as12, an absolute assembler for Motorola MCU's, version 1.2h
 
-                        ;#################################################################
+                        ;#################################################################################################################
                         ;
                         ;
                         ;               Tarea 6
                         ;               Eduardo Alfaro Gonzalez
                         ;               B50203
                         ;               Comunicacion serial y conversion AD
-                        ;               Ultima vez modificado 14/11/19
+                        ;               Ultima vez modificado 16/11/19
                         ;
                         ;
-                        ;#################################################################
+                        ;#################################################################################################################
                         #include registers.inc
                         ; Memory maps and register equates
                         ; Choose one of DBUG12MAP (normal operation under DBUG12)
@@ -640,39 +640,78 @@ eeb2                    WriteMem equ    $EEB2   ; FAR call
                         
                         
                         
-                        ;#################################################################
+                        ;#################################################################################################################
                         ;               Definicion de estructuras de datos
                         
-                        
+1000                                    org $1000
 000d                    CR:             equ $0D
 000a                    LF:             equ $0A
-0000                    FIN:            equ $0
+00ff                    FIN:            equ $FF
+0008                    BS:             equ $08
                         
 1010                                    org $1010
                         
 1010                    Nivel_PROM:     ds 2
 1012                    NIVEL:          ds 1
-1013                    VOLUMEN:        ds 1
-1014                    CONT_OC:        ds 2
-1016                    VOL_C:          ds 1
-1017                    VOL_D:          ds 1
-1018                    VOL_U:          ds 1
+1013                    VOLUMEN:        ds 2
+1015                    CONT_OC:        ds 2
+                        
+1017                    Pointer1:       ds 2
+1019                    Pointer2:       ds 2
+101b                    Pointer3:       ds 2
+101d                    Flags:          ds 1        ;0: la alarma de nivel bajo esta encendida, 1: la alarma de nivel alto esta encendida
+                        
+                        
                         
 1070                                    org $1070
-1070 4d 4f 44 4f 20 43  MESS1:          fcc "MODO CONFIG"
-     4f 4e 46 49 47
-107b 00                                 db FIN
-107c 49 4e 47 52 45 53  MESS2:          fcc "INGRESE CPROG"
-     45 20 43 50 52 4f
-     47
-1089 00                                 db FIN
-108a 4d 4f 44 4f 20 52  MESS3:          fcc "MODO RUN"
-     55 4e
-1092 00                                 db FIN
-1093 41 43 55 4d 55 4c  MESS4:          fcc "ACUMUL.-CUENTA"
-     2e 2d 43 55 45 4e
-     54 41
-10a1 00                                 db FIN
+1070 0d                 MESS1:          db CR
+1071 08                                 db BS
+1072 0d                                 db CR
+1073 08                                 db BS
+1074 0d                                 db CR
+1075 08                                 db BS
+1076 0d                                 db CR
+1077 08                                 db BS
+1078 0d                                 db CR
+1079 20 20 20 20 20 20                  fcc "       Medicion de Volumen "
+     20 4d 65 64 69 63
+     69 6f 6e 20 64 65
+     20 56 6f 6c 75 6d
+     65 6e 20
+1094 0a                                 db LF
+1095 0d                                 db CR
+1096 56 6f 6c 75 6d 65                  fcc "Volumen Actual: "
+     6e 20 41 63 74 75
+     61 6c 3a 20
+10a6                    VOL_C:          ds 1
+10a7                    VOL_D:          ds 1
+10a8                    VOL_U:          ds 1
+10a9 0a                                 db LF
+10aa 0d                                 db CR
+10ab 20 20 20 20 20 20                  fcc "                               "
+     20 20 20 20 20 20
+     20 20 20 20 20 20
+     20 20 20 20 20 20
+     20 20 20 20 20 20
+     20
+10ca 0d                                 db CR
+10cb ff                                 db FIN
+10cc 41 6c 61 72 6d 61  MESS2:          fcc "Alarma: El nivel esta bajo"
+     3a 20 45 6c 20 6e
+     69 76 65 6c 20 65
+     73 74 61 20 62 61
+     6a 6f
+10e6 0d                                 db CR
+10e7 0a                                 db LF                
+10e8 ff                                 db FIN
+10e9 54 61 6e 71 75 65  MESS3:          fcc "Tanque lleno, Bomba Apagada"                
+     20 6c 6c 65 6e 6f
+     2c 20 42 6f 6d 62
+     61 20 41 70 61 67
+     61 64 61
+1104 0d                                 db CR
+1105 0a                                 db LF                
+1106 ff                                 db FIN
                         
                         
                         
@@ -682,147 +721,203 @@ eeb2                    WriteMem equ    $EEB2   ; FAR call
                                         
                         
 3e4c                                    org $3E4C
-3e4c 20 a2                              dw PTH_ISR
+3e4c 20 b6                              dw PTH_ISR
 3e64                                    org $3E64
-3e64 20 a7                              dw OC5_ISR
+3e64 20 bb                              dw OC5_ISR
 3e52                                    org $3E52
-3e52 20 bc                              dw ATD0_ISR
+3e52 20 f2                              dw ATD0_ISR
 3e54                                    org $3E54
-3e54 20 d6                              dw SCI1_ISR
+3e54 21 0c                              dw SCI1_ISR
                         
-                        ;################################################
+                        ;################################################################################################
                         ;       Programa principal
 2000                                    org $2000
                         
-                        ;################################################
+                        ;################################################################################################
                         ;       Definicion de hardware
-                        
+                        ;       SCI1
+2000 18 03 00 27 00 d0                  movw #39, SC1BDH      ;38400 BaudRate
+2006 18 0b 12 00 d2                     movb #$12, SC1CR1      ;Habilitar paridad y configurar paridad par
+200b 18 0b 08 00 d3                     movb #08, SC1CR2
                         ;       Output compare
-2000 18 0b 90 00 46                     movb #$90, TSCR1
-2005 18 0b 06 00 4d                     movb #$06, TSCR2
-200a 18 0b 20 00 40                     movb #$20, TIOS
-200f 18 0b 04 00 48                     movb #$04, TCTL1
-2014 18 0b 00 00 49                     movb #$00, TCTL2
-2019 18 0b 20 00 4c                     movb #$20, TIE
-201e dc 44                              ldd TCNT
-2020 c3 05 dc                           addd #1500        ;FIXME
-2023 5c 5a                              std TC5
+2010 18 0b 90 00 46                     movb #$90, TSCR1
+2015 18 0b 06 00 4d                     movb #$06, TSCR2
+201a 18 0b 20 00 40                     movb #$20, TIOS
+201f 18 0b 08 00 48                     movb #$08, TCTL1
+2024 18 0b 00 00 49                     movb #$00, TCTL2
+2029 18 0b 20 00 4c                     movb #$20, TIE
+202e dc 44                              ldd TCNT
+2030 c3 f4 24                           addd #62500        
+2033 5c 5a                              std TC5
                                         
                         
                         ;       ATD0
-2025 18 0b c2 00 82                     movb #$C2, ATD0CTL2
-202a c6 c8                              ldab #200
-202c 04 31 fd           loopIATD:       dbne B,loopIATD         ;loop de retardo para encender el convertidor
-202f 18 0b 30 00 83                     movb #$30, ATD0CTL3
-2034 18 0b 10 00 84                     movb #$10, ATD0CTL4
-2039 18 0b 87 00 85                     movb #$87, ATD0CTL5
+2035 18 0b c2 00 82                     movb #$C2, ATD0CTL2
+203a c6 c8                              ldab #200
+203c 04 31 fd           loopIATD:       dbne B,loopIATD         ;loop de retardo para encender el convertidor
+203f 18 0b 30 00 83                     movb #$30, ATD0CTL3
+2044 18 0b 10 00 84                     movb #$10, ATD0CTL4
+2049 18 0b 87 00 85                     movb #$87, ATD0CTL5
                                         
                         ;       Puerto H sw
                         
-203e 1c 02 66 01                        bset PIEH, $01          ;habilitar interrupciones PH 
-2042 1c 02 67 01                        bset PIFH, $01          ;Solo para pruebas
+204e 1c 02 66 01                        bset PIEH, $01          ;habilitar interrupciones PH 
+2052 1c 02 67 01                        bset PIFH, $01          ;Solo para pruebas
                         
                         ;       Puerto E rele
-2046 4c 09 04                           bset DDRE,$04
+2056 4c 09 04                           bset DDRE,$04
                                         
                         
                         ;       LEDS for testing
-2049 18 0b ff 00 03                     movb #$FF, DDRB
-204e 1c 02 6a 02                        bset DDRJ, $02
-2052 1d 02 68 02                        bclr PTJ, $02
-2056 18 0b 0f 02 5a                     movb #$0F, DDRP
-205b 18 0b 0f 02 58                     movb #$0F, PTP
+2059 18 0b ff 00 03                     movb #$FF, DDRB
+205e 1c 02 6a 02                        bset DDRJ, $02
+2062 1d 02 68 02                        bclr PTJ, $02
+2066 18 0b 0f 02 5a                     movb #$0F, DDRP
+206b 18 0b 0f 02 58                     movb #$0F, PTP
                         
-                        ;################################################
+                        ;################################################################################################
                         
                         ;               inicializacion
-2060 cf 3b ff                           lds #$3BFF
-2063 10 ef                              cli
-2065 18 0b fa 10 14                     movb #250,CONT_OC
+2070 cf 3b ff                           lds #$3BFF
+2073 10 ef                              cli
+2075 18 0b 06 10 15                     movb #6,CONT_OC
                         
                         ;       Programa main               
                         main:           loc
-206a 16 20 70                           jsr Calculo
-206d a7                                 nop
-206e 20 fa                              bra main
+207a 16 20 80                           jsr Calculo
+207d a7                                 nop
+207e 20 fa                              bra main
                                         
                                         
                                         
-                        ;################################################
+                        ;################################################################################################
                         ;       Subrutinas
-                        ;################################################
+                        ;################################################################################################
                         ;       Subrutinas Generales
                         ;       Subrutina calculo
                         Calculo:        loc
-2070 fc 10 10                           ldd Nivel_PROM                
-2073 cd 00 1e                           ldy #30
-2076 ce 04 00                           ldx #1024
-2079 13                                 emul
-207a 11                                 ediv                
-207b b7 64                              tfr Y,D
-207d 7b 10 12                           stab NIVEL                
-2080 86 14                              ldaa #20
-2082 12                                 mul
-2083 7c 10 13                           std VOLUMEN
-2086 ce 00 64                           ldx #100            ;Separar centenas decenas y unidades para imprimirlos en el mensaje
-2089 18 10                              idiv                ;En X centenas, en D residuo
-208b 3b                                 pshd
-208c b7 54                              tfr X,D
-208e 7b 10 16                           stab VOL_C
-2091 3a                                 puld
-2092 ce 00 0a                           ldx #10
-2095 18 10                              idiv 
-2097 7b 10 18                           stab VOL_U                       
-209a b7 54                              tfr X,D
-209c 7b 10 17                           stab VOL_D
-209f 5b 01                              stab PORTB          ;FIXME: Para pruebas         
-20a1 3d                                 rts
+2080 fc 10 10                           ldd Nivel_PROM                
+2083 cd 00 1e                           ldy #30
+2086 ce 04 00                           ldx #1024
+2089 13                                 emul
+208a 11                                 ediv                
+208b b7 64                              tfr Y,D
+208d 7b 10 12                           stab NIVEL
+                                        ;stab PORTB          ;FIXME: Para pruebas                 
+2090 86 14                              ldaa #20
+2092 12                                 mul
+2093 7c 10 13                           std VOLUMEN
+2096 ce 00 64                           ldx #100            ;Separar centenas decenas y unidades para imprimirlos en el mensaje
+2099 18 10                              idiv                ;En X centenas, en D residuo
+209b 3b                                 pshd
+209c b7 54                              tfr X,D
+209e cb 30                              addb #$30
+20a0 7b 10 a6                           stab VOL_C
+20a3 3a                                 puld
+20a4 ce 00 0a                           ldx #10
+20a7 18 10                              idiv 
+20a9 cb 30                              addb #$30
+20ab 7b 10 a8                           stab VOL_U                       
+20ae b7 54                              tfr X,D
+20b0 cb 30                              addb #$30
+20b2 7b 10 a7                           stab VOL_D
+                                                
+20b5 3d                                 rts
                         
-                        ;################################################
-                        ;################################################
-                        ;################################################
+                        ;################################################################################################
+                        ;################################################################################################
+                        ;################################################################################################
                         ;       Subrutinas de proposito especifico
                         
                         ;       Subrutinas PH
                         
                         ;       subrutina PH0
-20a2 1c 02 67 01        PTH_ISR:        bset PIFH, $01        ;Solo se usa para prueba de break points                  
-20a6 0b                 returnPH:       rti
+20b6 1c 02 67 01        PTH_ISR:        bset PIFH, $01        ;Solo se usa para prueba de break points                  
+20ba 0b                 returnPH:       rti
                         
                         
                         
                         ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                         ;   Subrutina OC5
                                         loc
-20a7 f7 10 14           OC5_ISR:        tst CONT_OC
-20aa 26 05                              bne returnOC5
-20ac 18 0b fa 10 14                     movb #250,CONT_OC
-20b1 73 10 14           returnOC5       dec CONT_OC
-20b4 dc 44                              ldd TCNT
-20b6 c3 05 dc                           addd #1500
-20b9 5c 5a                              std TC5
-20bb 0b                                 rti
+20bb f7 10 15           OC5_ISR:        tst CONT_OC
+20be 26 27                              bne returnOC5
+20c0 18 0b 06 10 15                     movb #6,CONT_OC     ; Reset contador
+20c5 96 48                              ldaa TCTL1
+20c7 88 04                              eora #$04
+20c9 5a 48                              staa TCTL1                
+20cb 18 0b c8 00 d3                     movb #$C8,SC1CR2
+20d0 ce 10 70                           ldx #MESS1
+20d3 96 d4                              ldaa SC1SR1
+20d5 18 03 10 70 10 17                  movw #MESS1,Pointer1         ;apuntar el puntero al primer mensaje 
+20db 18 03 10 cc 10 19                  movw #MESS2,Pointer2         ;apuntar el puntero2 al segundo mensaje 
+20e1 18 03 10 e9 10 1b                  movw #MESS3,Pointer3         ;apuntar el puntero3 al tercer mensaje 
+20e7 73 10 15           returnOC5       dec CONT_OC
+20ea dc 44                              ldd TCNT
+20ec c3 f4 24                           addd #62500
+20ef 5c 5a                              std TC5
+20f1 0b                                 rti
                         
                         ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                         ;   Subrutina ATD0
                         ATD0_ISR:       loc
-20bc ce 00 06                           ldx #6
-20bf dc 90                              ldd ADR00H
-20c1 d3 92                              addd ADR01H
-20c3 d3 94                              addd ADR02H
-20c5 d3 96                              addd ADR03H
-20c7 d3 98                              addd ADR04H
-20c9 d3 9a                              addd ADR05H
-20cb 18 10                              idiv 
-20cd 7e 10 10                           stx Nivel_PROM      ;Guardar el promedio
+20f2 ce 00 06                           ldx #6
+20f5 dc 90                              ldd ADR00H
+20f7 d3 92                              addd ADR01H
+20f9 d3 94                              addd ADR02H
+20fb d3 96                              addd ADR03H
+20fd d3 98                              addd ADR04H
+20ff d3 9a                              addd ADR05H
+2101 18 10                              idiv 
+2103 7e 10 10                           stx Nivel_PROM      ;Guardar el promedio
                                         ;tfr X,D             ;FIXME: para pruebas
                                         ;stab PORTB          ;FIXME: Para pruebas
-20d0 18 0b 87 00 85                     movb #$87, ATD0CTL5
-20d5 0b                                 rti
+2106 18 0b 87 00 85                     movb #$87, ATD0CTL5
+210b 0b                                 rti
+                        
+                        
+                        
                         ;   Subrutina SCI1
                         SCI1_ISR:       loc
-20d6 0b                                 rti
+210c f6 10 12                           ldab NIVEL
+210f 96 d4                              ldaa SC1SR1
+2111 4c d4 80                           bset SC1SR1,$80
+2114 5b 01                              stab PORTB          ;Fixme: Para pruebas
+2116 fe 10 17                           ldx Pointer1
+2119 a6 00                              ldaa 0,X
+211b 81 ff                              cmpa #FIN
+211d 27 0a                              beq CheckAlarm11
+211f 18 0d 30 00 d7                     movb 1,X+,SC1DRL
+2124 7e 10 17                           stx Pointer1
+2127 20 4a                              bra returnSC1
+2129 1f 10 1d 01 08     CheckAlarm11:   brclr Flags,$01, CheckAlarm12                                
+212e c1 07                              cmpb #7             ;30 por ciento
+2130 2f 0c                              ble pAlarm1         ;Salta a imprimir la alarma 1
+2132 1d 10 1d 01                        bclr Flags,$01      ;Apaga la bandera de alarma                    
+2136 c1 04              CheckAlarm12:   cmpb #4             ;15 por ciento
+2138 2e 1a                              bgt CheckAlarm2
+213a 1c 10 1d 01                        bset Flags,$01
+213e 4c 08 04           pAlarm1:        bset PORTE,#$04
+2141 fe 10 19                           ldx Pointer2
+2144 a6 00                              ldaa 0,X          ;Carga en A el byte del mensaje
+2146 81 ff                              cmpa #FIN
+2148 27 24                              beq EndSCI1         
+214a 18 0d 30 00 d7                     movb 1,X+,SC1DRL                
+214f 7e 10 19                           stx Pointer2
+2152 20 1f                              bra returnSC1                    ;Activar alarma de nivel bajo
+2154 c1 17              CheckAlarm2:    cmpb #23
+2156 2d 16                              blt EndSCI1                         
+2158 4d 08 04           pAlarm2:        bclr PORTE,#$04
+215b fe 10 1b                           ldx Pointer3
+215e a6 00                              ldaa 0,X          ;Carga en A el byte del mensaje
+2160 81 ff                              cmpa #FIN
+2162 27 0a                              beq EndSCI1         
+2164 18 0d 30 00 d7                     movb 1,X+,SC1DRL
+2169 7e 10 1b                           stx Pointer3
+216c 20 05                              bra returnSC1
+216e 18 0b 08 00 d3     EndSCI1:        movb #$08,SC1CR2        
+2173 0b                 returnSC1:      rti
 
-Executed: Fri Nov 15 23:36:19 2019
-Total cycles: 298, Total bytes: 273
+Executed: Sat Nov 16 19:28:05 2019
+Total cycles: 455, Total bytes: 528
 Total errors: 0, Total warnings: 0
