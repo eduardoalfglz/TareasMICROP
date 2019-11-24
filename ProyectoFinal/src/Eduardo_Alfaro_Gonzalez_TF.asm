@@ -40,7 +40,7 @@ PATRON:         ds 1
 
 NUM_ARRAY:      ds 2
 BRILLO:         ds 1        ; 0-100 cotrola el brillo de 7 seg
-POT:            ds 1        ;FIXME son variables o constantes
+POT:            ds 1        ;Variable que almacena el valor promedio del ATD
 TICK_EN:        ds 2        ;FIXME son variables o constantes
 TICK_DIS:       ds 2        ;FIXME son variables o constantes
 VELOC:          ds 1
@@ -131,6 +131,8 @@ MESS7:          fcc "  ESPERANDO..."
                 dw PTH_ISR
                 org $3E66
                 dw OC4_ISR
+                org $3E52
+                dw ATD_ISR
 
 ;################################################
 ;       Programa principal
@@ -166,12 +168,12 @@ MESS7:          fcc "  ESPERANDO..."
 
 
 ;       ATD0
-                ;movb #$C2, ATD0CTL2
-                ;ldab #200
-;loopIATD:       dbne B,loopIATD         ;loop de retardo para encender el convertidor
- ;               movb #$30, ATD0CTL3
-  ;              movb #$10, ATD0CTL4
-   ;             movb #$87, ATD0CTL5
+                movb #$C2, ATD0CTL2
+                ldab #200
+loopIATD:       dbne B,loopIATD         ;loop de retardo para encender el convertidor
+                movb #$30, ATD0CTL3     ;6 mediciones
+                movb #$B7, ATD0CTL4     ;8 bits, 4 ciclos de atd, PRS $17
+                movb #$87, ATD0CTL5     
 ;       Puerto H sw
 
 ;               bset PIEH, $0C          ;habilitar interrupciones PH
@@ -234,7 +236,7 @@ LoopCLR:        movb #$FF,A,X          ;iniciar el arreglo en FF
 ;Salida:
 ;################################################################################################################################################
 mainL:          loc
-                tst V_LIM
+                tst V_LIM               ;FIXME: Esto introduce un bug, es necesario que la velocidad sea diferente cero para que pueda ir a modo libre 
                 beq chkModoLC           ;Salta a revisar si es modo config o libre
                 ldaa PTIH               ;se cargan los valores de los dipswitch
                 anda #$C0               ;Se utilizan solo los bits de modo
@@ -437,11 +439,11 @@ changeDigit`    movb #$0, CONT_TICKS
                 movb #1,CONT_DIG
 jpart2`         bra part2`
 ;           encender digito
-check_digit`    ldaa CONT_DIG
+check_digit`    ldaa CONT_DIG               ;Se verifica cual digito se debe configurar
                 cmpa #1
                 bne dig2`
                 ldaa DISP1
-                cmpa #$BB
+                cmpa #$BB                   ;Si el valor en disp es BB el digito no se enciende
                 beq ndig1`
                 bclr PTP, $08
                 movb DISP1, PORTB
@@ -468,7 +470,7 @@ ndig3`          bra  incticks`
 dig4`           cmpa #4
                 bne digleds`                                          
                 ldaa DISP4
-                cmpa #$AA
+                cmpa #$BB
                 beq ndig4`
                 bclr PTP, $01  
                 movb DISP4, PORTB
@@ -486,6 +488,14 @@ tst7seg`        ldx CONT_7SEG
                 beq JBCD_7SEG`
                 dex
                 stx CONT_7SEG
+tst200`         ldx CONT_200
+                beq enableATDLEDs`
+                dex
+                stx CONT_200
+                bra returnOC4 
+enableATDLEDs`  movw #1000,CONT_200
+                movb #$87, ATD0CTL5
+                ;jsr PATRON_LEDS
 returnOC4       jsr CONV_BIN_BCD
                 ldd TCNT
                 addd #60
@@ -493,7 +503,42 @@ returnOC4       jsr CONV_BIN_BCD
                 rti
 JBCD_7SEG`      movw #5000,CONT_7SEG
                 jsr BCD_7SEG
-                bra returnOC4
+                bra tst200`
+
+
+
+;   Subrutina ATD
+
+;################################################################################################################################################
+;Descripcion:
+
+
+;Paso de parametros:
+;Entrada:
+;Salida:
+;################################################################################################################################################
+ATD_ISR:        loc
+                ldx #6
+                ldd ADR00H
+                addd ADR01H 
+                addd ADR02H
+                addd ADR03H     ;Se calcula el promedio de las 6 medidas del potenciometro
+                addd ADR04H
+                addd ADR05H
+                idiv 
+                tfr X,D
+                stab POT      ;Guardar el promedio
+                ldaa #20
+                mul
+                ldx #255
+                idiv
+                tfr X,D
+                ldaa #5      ;Se multiplica por 5 para volverlo en escala a 100
+                mul
+                stab BRILLO
+                
+                
+                rti
 
 
 ;################################################
@@ -923,7 +968,7 @@ MODO_MEDICION:  loc
 ;Entrada:
 ;Salida:
 ;################################################################################################################################################
-MODO_LIBRE:     loc
+MODO_LIBRE:     loc                
                 movb #$BB,BIN1
                 movb #$BB,BIN2
                 rts
