@@ -26,9 +26,9 @@ LF:             equ $0A
 FIN:            equ $0
 
                 org $1000
-BANDERAS2:      ds 1    ;7: MOD_H      6:MOD_L    1:Data or Control LCD    0:Cambio_Modo
+BANDERAS2:      ds 1    ;7: MOD_H      6:MOD_L   2:PRINT Calculando... 1:Data or Control LCD    0:Cambio_Modo
 BANDERAS1:      ds 1    ;0: TCL_Lista   1:TCL_Leida     2:ARRAY_OK  3:PANT_FLAG     4:ALERTA        5:CALC_TICK
-V_Lim:          ds 1    ;Velocidad limite
+V_LIM:          ds 1    ;Velocidad limite
 MAX_TCL:        db 2
 TECLA:          ds 1
 TECLA_IN:       ds 1
@@ -41,10 +41,10 @@ PATRON:         ds 1
 NUM_ARRAY:      ds 2
 BRILLO:         ds 1        ; 0-100 cotrola el brillo de 7 seg
 POT:            ds 1        ;Variable que almacena el valor promedio del ATD
-TICK_EN:        ds 2        ;FIXME son variables o constantes
-TICK_DIS:       ds 2        ;FIXME son variables o constantes
-VELOC:          ds 1
-TICK_VEL:       ds 1
+TICK_EN:        ds 2        ;Cantidad de ticks necesarios para cubrir 100m
+TICK_DIS:       ds 2        ;Cantidad de ticks necesarios para cubrir 200m
+VELOC:          ds 1        ;VELOCIDAD MEDIDA POR LOS SENSORES
+TICK_VEL:       ds 1        ;Ticks utilizados para sensar la velocidad del vehiculo    
 
 
 BIN1:           ds 1        ;corresponde al valor de DISP1 y DISP2 en binario
@@ -70,7 +70,7 @@ DT:             ds 1        ;100 - BRILLO, valor donde se resetea CONT_TICKS
 
 
 CONT_7SEG:      ds 2        ;cuando llega a 5000 se actualizan los valores de DISP
-CONT_200        ds 1        ;FIXME son variables o constantes
+CONT_200        ds 2        ;contador para 200 ms para habilitar el atd, se cambia a word por el tamaño de lo que almacena
 CONT_DELAY:     ds 1        ;
 D2mS:           db 100
 D240uS:         db 13
@@ -117,6 +117,8 @@ MESS5:          fcc " MODO MEDICION"
 MESS6:          fcc "SU VEL. VEL.LIM"
                 db FIN
 MESS7:          fcc "  ESPERANDO..."
+                db FIN            
+MESS8:          fcc "  CALCULANDO..."
                 db FIN                
 
 
@@ -133,6 +135,8 @@ MESS7:          fcc "  ESPERANDO..."
                 dw OC4_ISR
                 org $3E52
                 dw ATD_ISR
+                org $3E5E
+                dw TCNT_ISR
 
 ;################################################
 ;       Programa principal
@@ -206,6 +210,7 @@ loopIATD:       dbne B,loopIATD         ;loop de retardo para encender el conver
                 movb #0,DISP2
                 movb #0,DISP3
                 movb #0,DISP4
+                movb #0,VELOC
                 ;modser=1
                 movb #1,CONT_DIG
                 movb #0,CONT_TICKS
@@ -217,9 +222,9 @@ loopIATD:       dbne B,loopIATD         ;loop de retardo para encender el conver
                 movb #$FF, TECLA_IN
                 movb #$00, CONT_TCL
                 movb #$00, CONT_REB
-                bclr BANDERAS1,$07      ;Poner las banderas de teclados en 0 FIXME: esto no considera las nuevas banderas
-                bset BANDERAS2,$01      ;Poner la bandera cambio nodo en 1 y 
-                bclr BANDERAS2,$C0      ;modo en 11 es decir MODO config
+                bclr BANDERAS1,$FF      ;Poner las banderas de teclados en 0 
+                bset BANDERAS2,$01      ;Poner la bandera cambio nodo en 1 y el resto no importan
+                bclr BANDERAS2,$C4      ;modo en 00 es decir MODO config, se borra la bandera print Calculando                
                 ldaa MAX_TCL
                 ldx #NUM_ARRAY-1
 LoopCLR:        movb #$FF,A,X          ;iniciar el arreglo en FF
@@ -259,8 +264,11 @@ swML`           bset BANDERAS2,$80      ;Si los switches estan en modo libre se 
 swMM`           bset BANDERAS2,$C0      ;Si los switches estan en modo medicion se configura en el registro MOD
 
 nochange`       brset BANDERAS2,$C0,chkModoM`     ;Salta a revisar el modo Medicion
-                ;FIXME:Aqui se deben desabilitar las interrupciones
-chkModoLC:      brclr BANDERAS2,$C0,chkModoC`       ;Salta a revisar el modo Config
+                
+chkModoLC:      movb #0,VELOC
+                bclr PIEH,$09                       ;Se deshabilitan las interrupciones del puerto H, TOI y se pone veloc en 0
+                bclr TSCR2,$80
+                brclr BANDERAS2,$C0,chkModoC`       ;Salta a revisar el modo Config
 
 
 chkModoL`       brclr BANDERAS2,$01,jmodolibre`           ;Tecnicamente aqui deberia saltar a modo libre, pero no hace nada
@@ -285,10 +293,14 @@ chkModoC`       brclr BANDERAS2,$01,jmodoconfig`
 jmodoconfig`    jsr MODO_CONFIG
                 jmp mainL
 
-chkModoM`       ;FIXME:Aqui se deben habilitar las interrupciones
+chkModoM`       bset TSCR2,$80
                 brclr BANDERAS2,$01,jmodormedicion`
+                bset PIEH,$09               ;La primera vez que se llega a este modo se habilitan las interrupciones del puerto H
+                bset PIFH,$09
                 bclr BANDERAS2,$01
                 movb #$02,LEDS
+                movb #$BB,BIN1
+                movb #$BB,BIN2              ;Se borra la pantalla de 7 seg
                 ldx #MESS5
                 ldy #MESS7
                 jsr CARGAR_LCD
@@ -309,7 +321,7 @@ jmodormedicion` jsr MODO_MEDICION
 ;################################################################################################################################################################################################
 ;################################################################################################################################################################################################
 ;################################################################################################################################################################################################
-;       Subrutinas de proposito especifico
+;       Subrutinas de interrupciones
 
 ;       Subrutinas PH
 ;        subrutina de PHO
@@ -329,48 +341,53 @@ PTH_ISR:        brset PIFH,$01,PH0_ISR
 ;Entrada:
 ;Salida:
 ;################################################################################################################################################
-PH0_ISR:        bset PIFH, $01                          
+PH0_ISR:        bset PIFH, $01 
                 tst CONT_REB
-                bne returnPH
-                
-                movb #50,CONT_REB
-                bclr PORTE,$04
+                bne returnPH 
+                movb #10,CONT_REB
+                ldab TICK_VEL           ;Si el contador de rebotes es distinto de 0 se ejecuta el Calculo
+                ldaa #0                 ;Se carga en D TICK_VEL, ya que en X no se puede porque es un byte
+                ldx #6592               
+                xgdx                 ;Se intercambian para la division
+                idiv
+                tfr X,D                 ;Se vuelven a intercambiar para guardar el resultado en veloc que es un byte
+                stab VELOC              ;Se procede a calcular los ticks para las banderas
+                ldab TICK_VEL           ;Se multiplica tick_vel por 5 para obtener la cantidad de ticks para 200 m
+                ldaa #5
+                mul
+                std TICK_DIS
+                lsrd
+                std TICK_EN             ;Se divide entre 2 para obtener la cantidad de ticks para 100 m                                                        
                 bra returnPH
 
 ;       subrutina PH1
 ;################################################################################################################################################
 ;Descripcion:
-
+;       Esta subrutina nunca se utiliza
 
 ;Paso de parametros:
 ;Entrada:
 ;Salida:
 ;################################################################################################################################################
-PH1_ISR:        bset PIFH, $02                          
-                tst CONT_REB
-                bne returnPH
-                
-                movb #50,CONT_REB
-                bclr PORTE,$04
+PH1_ISR:        bset PIFH, $02                                          
 returnPH:       rti
 ;       subrutina PH2
 ;################################################################################################################################################
-;Descripcion:
+;Descripcion: 
+;       Esta subrutina nunca se utiliza        
 
 
 ;Paso de parametros:
 ;Entrada:
 ;Salida:
 ;################################################################################################################################################                
-PH2_ISR:        bset PIFH, $04
-                ldaa BRILLO
-                beq returnPH
-                suba #5
-                staa BRILLO
+PH2_ISR:        bset PIFH, $04 
+                             
                 bra returnPH
 ;       subrutina PH3
 ;################################################################################################################################################
 ;Descripcion:
+;       Incluye la subrutina Calculo
 
 
 ;Paso de parametros:
@@ -378,11 +395,11 @@ PH2_ISR:        bset PIFH, $04
 ;Salida:
 ;################################################################################################################################################
 PH3_ISR:        bset PIFH, $08
-                ldaa BRILLO
-                cmpa #100
-                beq returnPH
-                adda #5
-                staa BRILLO
+                tst CONT_REB
+                bne returnPH                
+                movb #10,CONT_REB
+                movb #0,TICK_VEL 
+                bset BANDERAS2,$04          ;Se levanta la bandera de print Calculando 
                 bra returnPH                
 
 
@@ -405,7 +422,7 @@ return`         rti
 
 
 ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-;   Subrutina OC4       ;FIXME: hay que cambiarla para decidir cuando se apaga la pantalla
+;   Subrutina OC4       
 ;################################################################################################################################################
 ;Descripcion:
 
@@ -416,8 +433,8 @@ return`         rti
 ;################################################################################################################################################
                 loc
 OC4_ISR:        ldaa CONT_TICKS
-                ldab #100
-                subb BRILLO
+                ldab DT
+                
                 cba
                 bge apagar`
                 tst CONT_TICKS
@@ -449,7 +466,7 @@ check_digit`    ldaa CONT_DIG               ;Se verifica cual digito se debe con
                 movb DISP1, PORTB
                 bset PTJ, $02
 ndig1`          bra  incticks`
-dig2`           cmpa #2
+dig2`           cmpa #2                     ;Se repite el mismo proceso para los otros digitos
                 bne dig3`
                 bclr PTP, $04
                 ldaa DISP2
@@ -481,10 +498,10 @@ digleds`        movb LEDS, PORTB
                 inc CONT_TICKS
 
 
-part2`          tst CONT_DELAY
+part2`          tst CONT_DELAY          ;Segunda parte de OC4, encargada de manejar cont_delay, cont_200 y la subrutina bcd_7seg
                 beq tst7seg`
                 dec CONT_DELAY
-tst7seg`        ldx CONT_7SEG
+tst7seg`        ldx CONT_7SEG           ;cuando el contador de 7seg es 0 se debe llamar a la subrutina y configurar el contador en 5000
                 beq JBCD_7SEG`
                 dex
                 stx CONT_7SEG
@@ -533,18 +550,46 @@ ATD_ISR:        loc
                 ldx #255
                 idiv
                 tfr X,D
+                stab BRILLO
                 ldaa #5      ;Se multiplica por 5 para volverlo en escala a 100
                 mul
-                stab BRILLO
+                stab DT
                 
                 
                 rti
+;   Subrutina TCNT
+
+;################################################################################################################################################
+;Descripcion:
 
 
-;################################################
-;################################################
-;################################################
-;################################################
+;Paso de parametros:
+;Entrada:
+;Salida:
+;################################################################################################################################################
+                loc
+TCNT_ISR:       ldaa TICK_VEL               
+                cmpa #255                   ; si esta en valor maximo se mantiene ahi, esto resulta en una velocidad invalida
+                beq next1`
+                inc TICK_VEL
+next1`          ldx TICK_EN                 ;Se comprueba que ticks enable sea diferente de 0
+                bne decEN`
+                ;movw #$FFFF,TICK_EN        ;Esta linea no es necesaria debido a que al restarle 1 se vuelve $FFFF
+                bset BANDERAS1,$08 
+decEN`          dex
+                stx TICK_EN
+                ldx TICK_DIS                ;Se comprueba que ticks disable sea diferente de 0
+                bne decDIS`
+                ;movw #$FFFF,TICK_DIS
+                bclr BANDERAS1,$08 
+decDIS`         dex                                              
+                stx TICK_EN
+                rti
+;################################################################################################################################################
+;################################################################################################################################################
+;################################################################################################################################################
+;################################################################################################################################################
+
 ;       Subrutinas Generales
 
 
@@ -930,7 +975,7 @@ return`         rts
 ;Salida:
 ;################################################################################################################################################
 MODO_CONFIG:    loc
-                bclr PIEH,$03
+                
                 brclr BANDERAS1,$04,jtarea_teclado`
                 jsr BCD_BIN
                 bclr BANDERAS1,$04
@@ -957,7 +1002,16 @@ returnCofig:    rts
 ;Salida:
 ;################################################################################################################################################
 MODO_MEDICION:  loc
-                rts
+                tst VELOC
+                beq tstflg`
+                jsr PANT_CTRL                       ;Si la velocidad es mayor a 0 se modifican las pantallas
+                bra returnMM`
+tstflg`         brclr BANDERAS2,$04,returnMM`       ;Si la bandera de imprimir Calculando está activa se imprime el mensaje
+                ldx #MESS5
+                ldy #MESS8  
+                jsr CARGAR_LCD
+                bclr BANDERAS2,$04                  ;Se borra la bandera de imprimir Calculando        
+returnMM`       rts
 
 ;       MODO_LIBRE
 ;################################################################################################################################################
@@ -973,5 +1027,52 @@ MODO_LIBRE:     loc
                 movb #$BB,BIN2
                 rts
 
+;       PANT_CTRL
+;################################################################################################################################################
+;Descripcion:
 
+
+;Paso de parametros:
+;Entrada:
+;Salida:
+;################################################################################################################################################                
+
+                loc
+PANT_CTRL:      bclr PIEH,$09
+                ldaa VELOC
+                cmpa #30                ;Se verifica que la velocidad este adentro del rango 30-99
+                blt outOfBounds`
+                cmpa #99
+                bgt outOfBounds`
+                cmpa V_LIM
+                ble next`
+                bset BANDERAS1,$10      ;Levantar Alerta si es mayor a la velocidad limite
+                bra next`
+outOfBounds`    movw #46,TICK_EN
+                movw #92,TICK_DIS
+                movb #$AA,VELOC                
+next`           brset BANDERAS1,$08,loadSpeed`  ;Se revisa PANT_FLAG si esta en 1 se carga en pantalla la velocidad y el mensaje correspondiente
+                ldaa BIN1               ;En esta rama se decide si enviar el mensaje de espera y devolver las variables a 0
+                cmpa #$BB               ;Si el valor de bin1 es diferente de #$BB es porque todavía no se ha enviado el mensaje
+                beq returnPC`
+                ldx #MESS5
+                ldy #MESS7
+                jsr CARGAR_LCD          ;Se enviar MODO_Medicion y esperando...
+                movb #$BB,BIN1
+                movb #$BB,BIN2
+                movb #0,VELOC
+                bset PIEH,$09
+                bset PIFH,$09
+
+                bra returnPC`
+loadSpeed`      ldaa BIN1               ;Se decide si enviar el mensaje con las velocidades
+                cmpa #$BB               ;Si el valor es #$BB no se ha enviado el mensaje
+                bne returnPC`
+                ldx #MESS5
+                ldy #MESS6
+                jsr CARGAR_LCD          ;Se enviar MODO_Medicion y su.vel y vel limite
+                movb V_LIM,BIN1
+                movb VELOC,BIN2
+
+returnPC`       rts
 
