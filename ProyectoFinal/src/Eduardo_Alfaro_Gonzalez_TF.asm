@@ -26,7 +26,7 @@ LF:             equ $0A
 FIN:            equ $0
 
                 org $1000
-BANDERAS2:      ds 1    ;7: MOD_H      6:MOD_L   2:PRINT Calculando... 1:Data or Control LCD    0:Cambio_Modo
+BANDERAS2:      ds 1    ;7: MOD_H      6:MOD_L  3:Enable tick_vel  2:PRINT Calculando... 1:Data or Control LCD    0:Cambio_Modo
 BANDERAS1:      ds 1    ;0: TCL_Lista   1:TCL_Leida     2:ARRAY_OK  3:PANT_FLAG     4:ALERTA        5:CALC_TICK
 V_LIM:          ds 1    ;Velocidad limite
 MAX_TCL:        db 2
@@ -267,7 +267,7 @@ nochange`       brset BANDERAS2,$C0,chkModoM`     ;Salta a revisar el modo Medic
                 
 chkModoLC:      movb #0,VELOC
                 bclr PIEH,$09                       ;Se deshabilitan las interrupciones del puerto H, TOI y se pone veloc en 0
-                bclr TSCR2,$80
+                movb #$03,TSCR2
                 brclr BANDERAS2,$C0,chkModoC`       ;Salta a revisar el modo Config
 
 
@@ -293,10 +293,11 @@ chkModoC`       brclr BANDERAS2,$01,jmodoconfig`
 jmodoconfig`    jsr MODO_CONFIG
                 jmp mainL
 
-chkModoM`       bset TSCR2,$80
-                brclr BANDERAS2,$01,jmodormedicion`
+chkModoM`       brclr BANDERAS2,$01,jmodormedicion`
                 bset PIEH,$09               ;La primera vez que se llega a este modo se habilitan las interrupciones del puerto H
                 bset PIFH,$09
+                movb #$83,TSCR2
+                bset TFLG2,$80
                 bclr BANDERAS2,$01
                 movb #$02,LEDS
                 movb #$BB,BIN1
@@ -344,7 +345,10 @@ PTH_ISR:        brset PIFH,$01,PH0_ISR
 PH0_ISR:        bset PIFH, $01 
                 tst CONT_REB
                 bne returnPH 
-                movb #10,CONT_REB
+                movb #100,CONT_REB
+                tst TICK_VEL            ;Se revisa que tick_Vel sea diferente de cero
+                beq returnPH
+                bclr BANDERAS2,$08
                 ldab TICK_VEL           ;Si el contador de rebotes es distinto de 0 se ejecuta el Calculo
                 ldaa #0                 ;Se carga en D TICK_VEL, ya que en X no se puede porque es un byte
                 ldx #6592               
@@ -355,6 +359,7 @@ PH0_ISR:        bset PIFH, $01
                 ldab TICK_VEL           ;Se multiplica tick_vel por 5 para obtener la cantidad de ticks para 200 m
                 ldaa #5
                 mul
+                movb #0,TICK_VEL
                 std TICK_DIS
                 lsrd
                 std TICK_EN             ;Se divide entre 2 para obtener la cantidad de ticks para 100 m                                                        
@@ -397,9 +402,10 @@ PH2_ISR:        bset PIFH, $04
 PH3_ISR:        bset PIFH, $08
                 tst CONT_REB
                 bne returnPH                
-                movb #10,CONT_REB
+                movb #100,CONT_REB
                 movb #0,TICK_VEL 
                 bset BANDERAS2,$04          ;Se levanta la bandera de print Calculando 
+                bset BANDERAS2,$08          ;Se levanta la bandera que habilita el conteo de ticks
                 bra returnPH                
 
 
@@ -568,14 +574,18 @@ ATD_ISR:        loc
 ;Salida:
 ;################################################################################################################################################
                 loc
-TCNT_ISR:       ldaa TICK_VEL               
+TCNT_ISR:       bset TFLG2,$80
+                ldaa TICK_VEL               
                 cmpa #255                   ; si esta en valor maximo se mantiene ahi, esto resulta en una velocidad invalida
                 beq next1`
+                brclr BANDERAS2,$08,next1`
                 inc TICK_VEL
-next1`          ldx TICK_EN                 ;Se comprueba que ticks enable sea diferente de 0
+next1`          tst VELOC
+                beq returnTCNT`
+                ldx TICK_EN                 ;Se comprueba que ticks enable sea diferente de 0
                 bne decEN`
                 ;movw #$FFFF,TICK_EN        ;Esta linea no es necesaria debido a que al restarle 1 se vuelve $FFFF
-                bset BANDERAS1,$08 
+                bset BANDERAS1,$08          ;Banderas1.3 corresponde a pant_flag    
 decEN`          dex
                 stx TICK_EN
                 ldx TICK_DIS                ;Se comprueba que ticks disable sea diferente de 0
@@ -583,8 +593,8 @@ decEN`          dex
                 ;movw #$FFFF,TICK_DIS
                 bclr BANDERAS1,$08 
 decDIS`         dex                                              
-                stx TICK_EN
-                rti
+                stx TICK_DIS
+returnTCNT`     rti
 ;################################################################################################################################################
 ;################################################################################################################################################
 ;################################################################################################################################################
@@ -872,9 +882,9 @@ CONV_BIN_BCD:   ldaa BIN1
                 bne cont1`
                 movb #$BB,BCD1
                 bra next`
-cont1`          cmpa #$BB
+cont1`          cmpa #$AA
                 bne cont2`
-                movb #$BB,BCD1
+                movb #$AA,BCD1
                 bra next`
 cont2`          jsr BIN_BCD
                 movb BCD_L,BCD1
@@ -883,9 +893,9 @@ next`           ldaa BIN2
                 bne cont3`
                 movb #$BB,BCD2
                 bra return`
-cont3`          cmpa #$BB
+cont3`          cmpa #$AA
                 bne cont4`
-                movb #$BB,BCD2
+                movb #$AA,BCD2
                 bra return`
 cont4`          jsr BIN_BCD
                 movb BCD_L,BCD2                                
@@ -1007,6 +1017,7 @@ MODO_MEDICION:  loc
                 jsr PANT_CTRL                       ;Si la velocidad es mayor a 0 se modifican las pantallas
                 bra returnMM`
 tstflg`         brclr BANDERAS2,$04,returnMM`       ;Si la bandera de imprimir Calculando está activa se imprime el mensaje
+                bclr PIEH,$08
                 ldx #MESS5
                 ldy #MESS8  
                 jsr CARGAR_LCD
@@ -1023,7 +1034,7 @@ returnMM`       rts
 ;Salida:
 ;################################################################################################################################################
 MODO_LIBRE:     loc                
-                movb #$BB,BIN1
+                movb #$AA,BIN1
                 movb #$BB,BIN2
                 rts
 
@@ -1048,19 +1059,22 @@ PANT_CTRL:      bclr PIEH,$09
                 ble next`
                 bset BANDERAS1,$10      ;Levantar Alerta si es mayor a la velocidad limite
                 bra next`
-outOfBounds`    movw #46,TICK_EN
+outOfBounds`    cmpa #$AA
+                beq next`
+                movw #1,TICK_EN
                 movw #92,TICK_DIS
                 movb #$AA,VELOC                
 next`           brset BANDERAS1,$08,loadSpeed`  ;Se revisa PANT_FLAG si esta en 1 se carga en pantalla la velocidad y el mensaje correspondiente
                 ldaa BIN1               ;En esta rama se decide si enviar el mensaje de espera y devolver las variables a 0
                 cmpa #$BB               ;Si el valor de bin1 es diferente de #$BB es porque todavía no se ha enviado el mensaje
                 beq returnPC`
-                ldx #MESS5
-                ldy #MESS7
-                jsr CARGAR_LCD          ;Se enviar MODO_Medicion y esperando...
                 movb #$BB,BIN1
                 movb #$BB,BIN2
                 movb #0,VELOC
+                ldx #MESS5
+                ldy #MESS7
+                jsr CARGAR_LCD          ;Se enviar MODO_Medicion y esperando...
+                
                 bset PIEH,$09
                 bset PIFH,$09
 
@@ -1068,11 +1082,12 @@ next`           brset BANDERAS1,$08,loadSpeed`  ;Se revisa PANT_FLAG si esta en 
 loadSpeed`      ldaa BIN1               ;Se decide si enviar el mensaje con las velocidades
                 cmpa #$BB               ;Si el valor es #$BB no se ha enviado el mensaje
                 bne returnPC`
+                movb V_LIM,BIN1
+                movb VELOC,BIN2
                 ldx #MESS5
                 ldy #MESS6
                 jsr CARGAR_LCD          ;Se enviar MODO_Medicion y su.vel y vel limite
-                movb V_LIM,BIN1
-                movb VELOC,BIN2
+                
 
 returnPC`       rts
 
