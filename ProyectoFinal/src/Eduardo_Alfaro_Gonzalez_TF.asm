@@ -80,7 +80,7 @@ Clear_LCD:      db $01      ;constante igual a comando clear
 ADD_L1:         db $80      ;constante igual a Adress linea 1 lcd
 ADD_L2:         db $C0      ;constante igual a Adress linea 2 lcd
 TEMP:           ds 1
-Variable1:      ds 1
+LEDS37:         ds 1        ;Variable que define el desplazamiento de los leds 3:7 en modo alerta
 Variable2:      ds 1
 Variable3:      ds 1
 
@@ -268,6 +268,7 @@ nochange`       brset BANDERAS2,$C0,chkModoM`     ;Salta a revisar el modo Medic
 chkModoLC:      movb #0,VELOC
                 bclr PIEH,$09                       ;Se deshabilitan las interrupciones del puerto H, TOI y se pone veloc en 0
                 movb #$03,TSCR2
+                bclr BANDERAS1,$10
                 brclr BANDERAS2,$C0,chkModoC`       ;Salta a revisar el modo Config
 
 
@@ -345,18 +346,21 @@ PTH_ISR:        brset PIFH,$01,PH0_ISR
 PH0_ISR:        bset PIFH, $01 
                 tst CONT_REB
                 bne returnPH 
-                movb #100,CONT_REB
-                tst TICK_VEL            ;Se revisa que tick_Vel sea diferente de cero
+                movb #100,CONT_REB          ;Si el contador de rebotes es distinto de 0 se ejecuta el Calculo
+                ldab TICK_VEL            ;Se revisa que tick_Vel sea diferente de cero
                 beq returnPH
-                bclr BANDERAS2,$08
-                ldab TICK_VEL           ;Si el contador de rebotes es distinto de 0 se ejecuta el Calculo
-                ldaa #0                 ;Se carga en D TICK_VEL, ya que en X no se puede porque es un byte
+                bclr BANDERAS2,$08      
+                cmpb #26                ;26 es el numero minimo de ticks si es menor el resultado de la velocidad es mayor a 255 y se desborda           
+                bge validSpeed`
+                movb #$FF,VELOC
+                bra SetTicks`
+validSpeed`     ldaa #0                 ;Se carga en D TICK_VEL, ya que en X no se puede porque es un byte
                 ldx #6592               
                 xgdx                 ;Se intercambian para la division
                 idiv
                 tfr X,D                 ;Se vuelven a intercambiar para guardar el resultado en veloc que es un byte
                 stab VELOC              ;Se procede a calcular los ticks para las banderas
-                ldab TICK_VEL           ;Se multiplica tick_vel por 5 para obtener la cantidad de ticks para 200 m
+SetTicks`       ldab TICK_VEL           ;Se multiplica tick_vel por 5 para obtener la cantidad de ticks para 200 m
                 ldaa #5
                 mul
                 movb #0,TICK_VEL
@@ -467,7 +471,7 @@ check_digit`    ldaa CONT_DIG               ;Se verifica cual digito se debe con
                 bne dig2`
                 ldaa DISP1
                 cmpa #$BB                   ;Si el valor en disp es BB el digito no se enciende
-                beq ndig1`
+                beq incticks`
                 bclr PTP, $08
                 movb DISP1, PORTB
                 bset PTJ, $02
@@ -477,7 +481,7 @@ dig2`           cmpa #2                     ;Se repite el mismo proceso para los
                 bclr PTP, $04
                 ldaa DISP2
                 cmpa #$BB
-                beq ndig2`
+                beq incticks`
                 movb DISP2, PORTB
                 bset PTJ, $02
 ndig2`          bra  incticks`
@@ -518,7 +522,7 @@ tst200`         ldx CONT_200
                 bra returnOC4 
 enableATDLEDs`  movw #1000,CONT_200
                 movb #$87, ATD0CTL5
-                ;jsr PATRON_LEDS
+                jsr PATRON_LEDS
 returnOC4       jsr CONV_BIN_BCD
                 ldd TCNT
                 addd #60
@@ -574,8 +578,7 @@ ATD_ISR:        loc
 ;Salida:
 ;################################################################################################################################################
                 loc
-TCNT_ISR:       bset TFLG2,$80
-                ldaa TICK_VEL               
+TCNT_ISR:       ldaa TICK_VEL               
                 cmpa #255                   ; si esta en valor maximo se mantiene ahi, esto resulta en una velocidad invalida
                 beq next1`
                 brclr BANDERAS2,$08,next1`
@@ -594,7 +597,8 @@ decEN`          dex
                 bclr BANDERAS1,$08 
 decDIS`         dex                                              
                 stx TICK_DIS
-returnTCNT`     rti
+returnTCNT`     ldd TCNT
+                rti
 ;################################################################################################################################################
 ;################################################################################################################################################
 ;################################################################################################################################################
@@ -1034,7 +1038,7 @@ returnMM`       rts
 ;Salida:
 ;################################################################################################################################################
 MODO_LIBRE:     loc                
-                movb #$AA,BIN1
+                movb #$BB,BIN1
                 movb #$BB,BIN2
                 rts
 
@@ -1071,6 +1075,7 @@ next`           brset BANDERAS1,$08,loadSpeed`  ;Se revisa PANT_FLAG si esta en 
                 movb #$BB,BIN1
                 movb #$BB,BIN2
                 movb #0,VELOC
+                bclr BANDERAS1,$10      ;Levantar Alerta si es mayor a la velocidad limite
                 ldx #MESS5
                 ldy #MESS7
                 jsr CARGAR_LCD          ;Se enviar MODO_Medicion y esperando...
@@ -1091,3 +1096,30 @@ loadSpeed`      ldaa BIN1               ;Se decide si enviar el mensaje con las 
 
 returnPC`       rts
 
+
+
+
+
+;       PATRON_LEDS
+;################################################################################################################################################
+;Descripcion:
+
+
+;Paso de parametros:
+;Entrada:
+;Salida:
+;################################################################################################################################################                
+                loc
+PATRON_LEDS:    brset BANDERAS1,$10,activateAl`         ;Se revisa si la alarma está activada
+                bclr LEDS,$F8
+                bra returnPL`
+activateAl`     ldaa #$80
+                cmpa LEDS37
+                beq resLEDS37`
+                lsl LEDS37
+                bra chLEDS`
+resLEDS37`      movb #$08,LEDS37
+chLEDS`         ldaa LEDS37
+                adda #2
+                staa LEDS   
+returnPL`       rts                             
