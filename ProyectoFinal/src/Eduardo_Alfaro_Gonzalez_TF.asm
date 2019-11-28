@@ -241,7 +241,7 @@ LoopCLR:        movb #$FF,A,X          ;iniciar el arreglo en FF
 ;Salida:
 ;################################################################################################################################################
 mainL:          loc
-                tst V_LIM               ;FIXED: Esto introduce un bug, es necesario que la velocidad sea diferente cero para que pueda ir a modo libre 
+                tst V_LIM               ;La velocidad debe ser distanta de cero para salir de modo configs
                 beq chkModoLC           ;Salta a revisar si es modo config o libre
                 ldaa PTIH               ;se cargan los valores de los dipswitch
                 anda #$C0               ;Se utilizan solo los bits de modo
@@ -263,23 +263,11 @@ swML`           bset BANDERAS2,$80      ;Si los switches estan en modo libre se 
                 bra nochange`
 swMM`           bset BANDERAS2,$C0      ;Si los switches estan en modo medicion se configura en el registro MOD
 
-nochange`       cmpb #$C0       ;En B todavia esta banderas_H
-                lbeq chkModoM` ;Salta a revisar el modo Medicion
+nochange`       brset BANDERAS2,$C0,chkModoM`
+
                 
                 
-chkModoLC:      ldaa PTIH               ; NOTA:Toda esta parte se hace para el momento inicial donde V_LIM es 0 para que el programa pueda ingresar en modo libre tambien
-                anda #$80               ;Se utiliza el bit de modo más significativo que diferencia entre modo config y libre
-                ldab BANDERAS2          ;Bits de banderas que corresponden a modos
-                andb #$80               ;Bit de modo_H
-                cba
-                beq nochange2`
-                bset BANDERAS2,$01      ;Se activa cambio de modo
-                cmpa #$80
-                beq swML2`
-                bclr BANDERAS2,$C0
-                bra nochange2`
-swML2`          bset BANDERAS2,$80                
-nochange2`      movb #0,VELOC
+chkModoLC:      movb #0,VELOC
                 bclr PIEH,$09                       ;Se deshabilitan las interrupciones del puerto H, TOI y se pone veloc en 0
                 bset PIFH,$09
                 movb #$03,TSCR2
