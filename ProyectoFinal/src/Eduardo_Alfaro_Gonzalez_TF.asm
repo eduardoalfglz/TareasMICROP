@@ -241,7 +241,7 @@ LoopCLR:        movb #$FF,A,X          ;iniciar el arreglo en FF
 ;Salida:
 ;################################################################################################################################################
 mainL:          loc
-                tst V_LIM               ;FIXME: Esto introduce un bug, es necesario que la velocidad sea diferente cero para que pueda ir a modo libre 
+                tst V_LIM               ;FIXED: Esto introduce un bug, es necesario que la velocidad sea diferente cero para que pueda ir a modo libre 
                 beq chkModoLC           ;Salta a revisar si es modo config o libre
                 ldaa PTIH               ;se cargan los valores de los dipswitch
                 anda #$C0               ;Se utilizan solo los bits de modo
@@ -263,10 +263,25 @@ swML`           bset BANDERAS2,$80      ;Si los switches estan en modo libre se 
                 bra nochange`
 swMM`           bset BANDERAS2,$C0      ;Si los switches estan en modo medicion se configura en el registro MOD
 
-nochange`       brset BANDERAS2,$C0,chkModoM`     ;Salta a revisar el modo Medicion
+nochange`       cmpb #$C0       ;En B todavia esta banderas_H
+                lbeq chkModoM` ;Salta a revisar el modo Medicion
                 
-chkModoLC:      movb #0,VELOC
+                
+chkModoLC:      ldaa PTIH               ; NOTA:Toda esta parte se hace para el momento inicial donde V_LIM es 0 para que el programa pueda ingresar en modo libre tambien
+                anda #$80               ;Se utiliza el bit de modo más significativo que diferencia entre modo config y libre
+                ldab BANDERAS2          ;Bits de banderas que corresponden a modos
+                andb #$80               ;Bit de modo_H
+                cba
+                beq nochange2`
+                bset BANDERAS2,$01      ;Se activa cambio de modo
+                cmpa #$80
+                beq swML2`
+                bclr BANDERAS2,$C0
+                bra nochange2`
+swML2`          bset BANDERAS2,$80                
+nochange2`      movb #0,VELOC
                 bclr PIEH,$09                       ;Se deshabilitan las interrupciones del puerto H, TOI y se pone veloc en 0
+                bset PIFH,$09
                 movb #$03,TSCR2
                 bclr BANDERAS1,$18                  ;Se borra la bandera de alerta y la bandera de PANT_FLAG
                 brclr BANDERAS2,$C0,chkModoC`       ;Salta a revisar el modo Config
@@ -283,7 +298,7 @@ jmodolibre`     jsr MODO_LIBRE
 
 chkModoC`       brclr BANDERAS2,$01,jmodoconfig`
                 bclr BANDERAS2,$01                                  
-                movb V_LIM,BIN1
+                movb V_LIM,BIN1             ;Si esta en modo config se revisa si hay cambio de modo para imprimir en la LCD
                 movb #$BB,BIN2               
                 ldx #MESS1
                 ldy #MESS2
@@ -328,7 +343,7 @@ jmodormedicion` movb #$83,TSCR2
 ;        subrutina de PHO
 
                 loc
-PTH_ISR:        brset PIFH,$01,PH0_ISR 
+PTH_ISR:        brset PIFH,$01,PH0_ISR          ;Se revisa cual interrupcion es 1 y 2 estan siempre deshabilitadas
                 brset PIFH,$02,PH1_ISR
                 brset PIFH,$04,PH2_ISR
                 brset PIFH,$08,PH3_ISR
@@ -428,7 +443,7 @@ PH3_ISR:        bset PIFH, $08
 ;################################################################################################################################################
                 loc
 RTI_ISR:        bset CRGFLG, $80
-                tst CONT_REB
+                tst CONT_REB            ;Es subrutina solo se usa para el contador de rebotes 
                 beq return`
                 dec CONT_REB
 return`         rti
@@ -447,12 +462,12 @@ return`         rti
                 loc
 OC4_ISR:        ldaa CONT_TICKS
                 ldab DT
-                
+
                 cba
-                bge apagar`
+                bge apagar`         ; Si n ticks son iguales al DT se apaga la pantalla
                 tst CONT_TICKS
                 beq check_digit`
-checkN`         cmpa #100
+checkN`         cmpa #100           ;Si es 100 se debe encender un digito
                 beq changeDigit`
 incticks`       inc CONT_TICKS
                 jmp part2`
@@ -461,7 +476,7 @@ apagar`         movb #$FF,PTP
                 movb #$0, PORTB
                 bra checkN`
 ;           cambiar digito
-changeDigit`    movb #$0, CONT_TICKS
+changeDigit`    movb #$0, CONT_TICKS            ;Reset de contador
                 inc CONT_DIG
                 ldaa #6
                 cmpa CONT_DIG
@@ -523,14 +538,14 @@ tst200`         ldx CONT_200
                 dex
                 stx CONT_200
                 bra returnOC4 
-enableATDLEDs`  movw #1000,CONT_200
-                movb #$87, ATD0CTL5
-                jsr PATRON_LEDS
+enableATDLEDs`  movw #1000,CONT_200         ;Reseteo de contador
+                movb #$87, ATD0CTL5         ;Convertidor atd
+                jsr PATRON_LEDS             ;Leds de alarma
 returnOC4       jsr CONV_BIN_BCD
                 ldd TCNT
                 addd #60
                 std TC4
-                movb #$FF,TFLG1 ;
+                movb #$FF,TFLG1         ;Se hace borrado manual para evitar conflictos con TCNT
                 rti
 JBCD_7SEG`      movw #5000,CONT_7SEG
                 jsr BCD_7SEG
@@ -846,10 +861,10 @@ Send:           psha
                 lsra
                 lsra
                 staa PORTK
-                brset BANDERAS2,$02,dato1`
-                bclr PORTK,$01
+                brset BANDERAS2,$02,dato1`          ;Se revisa la bandera para determinar si es un dato o si es un comando
+                bclr PORTK,$01          
                 bra continue1`
-dato1`           bset PORTK,$01
+dato1`          bset PORTK,$01
 continue1`      bset PORTK,$02
                 movb D240uS,CONT_DELAY
                 jsr Delay
@@ -1002,7 +1017,7 @@ return`         rts
 ;################################################################################################################################################
 MODO_CONFIG:    loc
                 
-                brclr BANDERAS1,$04,jtarea_teclado`
+                brclr BANDERAS1,$04,jtarea_teclado`     ;Se revisa array ok
                 jsr BCD_BIN
                 bclr BANDERAS1,$04
                 ldaa V_LIM
@@ -1127,12 +1142,12 @@ PATRON_LEDS:    brset BANDERAS1,$10,activateAl`         ;Se revisa si la alarma 
                 bclr LEDS,$F8
                 bra returnPL`
 activateAl`     ldaa #$80
-                cmpa LEDS37
+                cmpa LEDS37                 ;Se revisa que no este en el ultimo led
                 beq resLEDS37`
-                lsl LEDS37
+                lsl LEDS37          ;Si no esta en el ultimo led se realiza un desplazamiento
                 bra chLEDS`
-resLEDS37`      movb #$08,LEDS37
+resLEDS37`      movb #$08,LEDS37        ;Si es igual se devuelve al primer led
 chLEDS`         ldaa LEDS37
-                adda #2
+                adda #2             ;Se le suma 2 para encender el led de modo medicion
                 staa LEDS   
 returnPL`       rts                             
