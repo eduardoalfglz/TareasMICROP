@@ -206,14 +206,14 @@ loopIATD:       dbne B,loopIATD         ;loop de retardo para encender el conver
                 movb #$00,BIN2
                 movb #$00,BIN1
                 movb #02,LEDS
-                movb #0,DISP1
-                movb #0,DISP2
-                movb #0,DISP3
-                movb #0,DISP4
-                movb #0,VELOC
+                clr DISP1
+                clr DISP2
+                clr DISP3
+                clr DISP4
+                clr VELOC
                 ;modser=1
                 movb #1,CONT_DIG
-                movb #0,CONT_TICKS
+                clr CONT_TICKS
                 movb #50, BRILLO
                 movb #00, V_LIM
                 
@@ -267,7 +267,7 @@ nochange`       brset BANDERAS2,$C0,chkModoM`
 
                 
                 
-chkModoLC:      movb #0,VELOC
+chkModoLC:      clr VELOC
                 bclr PIEH,$09                       ;Se deshabilitan las interrupciones del puerto H, TOI y se pone veloc en 0
                 bset PIFH,$09
                 movb #$03,TSCR2
@@ -369,7 +369,7 @@ validSpeed`     ldaa #0                 ;Se carga en D TICK_VEL, ya que en X no 
 SetTicks`       ldab TICK_VEL           ;Se multiplica tick_vel por 5 para obtener la cantidad de ticks para 200 m
                 ldaa #5
                 mul
-                movb #0,TICK_VEL
+                clr TICK_VEL
                 std TICK_DIS
                 lsrd
                 std TICK_EN             ;Se divide entre 2 para obtener la cantidad de ticks para 100 m                                                        
@@ -413,7 +413,7 @@ PH3_ISR:        bset PIFH, $08
                 tst CONT_REB
                 bne returnPH                
                 movb #100,CONT_REB
-                movb #0,TICK_VEL
+                clr TICK_VEL
                 bset BANDERAS2,$04          ;Se levanta la bandera de print Calculando 
                 bset BANDERAS2,$08          ;Se levanta la bandera que habilita el conteo de ticks
                 bra returnPH                
@@ -662,7 +662,7 @@ return`         rts
 ;################################################################################################################################################
 MUX_TECLADO:    loc
                 ldab #0
-                movb #0,PATRON
+                clr PATRON
                 ldx #TECLAS
 mainloop`       tst PATRON
                 bne p1
@@ -933,7 +933,7 @@ return`         rts
 ;################################################################################################################################################
                 loc
 BIN_BCD:        ldab #7
-                movb #0,BCD_L
+                clr BCD_L
                 ldx #BCD_L        
 loop`           lsla
                 rol 0,X
@@ -1018,7 +1018,7 @@ MODO_CONFIG:    loc
                 bra returnCofig
 jtarea_teclado` jsr TAREA_TECLADO
                 bra returnCofig
-resetV_LIM`     movb #0,V_LIM
+resetV_LIM`     clr V_LIM
 returnCofig:    rts
 
 ;       MODO_MEDICION
@@ -1094,7 +1094,7 @@ next`           brset BANDERAS1,$08,loadSpeed`  ;Se revisa PANT_FLAG si esta en 
                 jsr CARGAR_LCD          ;Se enviar MODO_Medicion y esperando...
                 movb #$BB,BIN1
                 movb #$BB,BIN2
-                movb #0,VELOC
+                clr VELOC
                 bclr BANDERAS1,$10      ;Borrar Alerta 
                 bset PIFH,$09
                 bset PIEH,$09
