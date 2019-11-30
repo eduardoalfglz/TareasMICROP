@@ -5,7 +5,7 @@
 ;               Eduardo Alfaro Gonzalez
 ;               B50203
 ;               IIC 
-;               Ultima vez modificado 27/11/19
+;               Ultima vez modificado 30/11/19
 ;
 ;
 ;#################################################################
@@ -24,7 +24,7 @@ FIN:            equ $0
                 org $1000
 
 CONT_RTI        ds 1
-BANDERAS:       ds 1        ;bit 5 cambio nodo, bit 4 modsel, bit 6 rs , bit 7 ESCRITURALECTURAIIC
+BANDERAS:       ds 1        ;bit 5 Alarma?, bit 4 rtc activado, bit 6 rs , bit 7 ESCRITURALECTURAIIC, bit 1: ya se puede leer
 BRILLO:         ds 1        ; 0-100 cotrola el brillo de 7 seg
 CONT_DIG:       ds 1        ;digito actual de 7seg
 CONT_TICKS:     ds 1        ;
@@ -53,7 +53,7 @@ Dir_WR:         db $D0              ;Direccion de escritura del DS1307
 Dir_RD:         db $D1              ;Direccion de lectura del DS1307
 Dir_Seg:        db $00              ;direccion en la que se debe realizar la primera escritura y lectura del DS1307
 ALARMA:         dw $0009
-T_WRITE_RTC:    db $30,$59,$08,$02,$04,$12      ;Hexadecimal porque es bcd, El bit 6 de horas se deja abajo porque es en formato 24 H 
+T_WRITE_RTC:    db $45,$59,$08,$02,$04,$12      ;Hexadecimal porque es bcd, El bit 6 de horas se deja abajo porque es en formato 24 H. Se ajusta a 15 s antes de que suene la alarma
                 org $1040
 T_Read_RTC:     ds 6
 
@@ -103,11 +103,11 @@ MESS2:          fcc " DESPERTADOR 623"
                 movb #$0F, DDRP
                 movb #$0F, PTP
 ;       Output compare
-                movb #$80, TSCR1        ;Habilita las interrupciones sin tffca
+                movb #$90, TSCR1        ;Habilita las interrupciones con tffca
                 movb #$03, TSCR2        ;Prescaler en 8 
                 movb #$10, TIOS         ;Se habilita la salida de oc4
                 movb #$05, TCTL1        ;Se ponen en toggle oc4 y oc5
-                movb #$00, TCTL2
+                clr  TCTL2
                 movb #$10, TIE          ;Solo se habilita la interrupcion de oc4
                 ldd TCNT
                 addd #60
@@ -121,7 +121,7 @@ MESS2:          fcc " DESPERTADOR 623"
                 bset PIEH, $0F          ;habilitar interrupciones PH
                 bset PIFH, $0F
 ;       RTI                 
-                movb #$75, RTICTL       ; esto lo pone en 49.152 ms
+                movb #$65, RTICTL       ; esto lo pone en 25.152 ms no se puede en 1 s porque no se observan bien los leds de segundos en el reloj
                 bset CRGINT, $80        ;habilitar interrupciones rti
 
 ;       IIC
@@ -135,24 +135,24 @@ MESS2:          fcc " DESPERTADOR 623"
 
 ;               inicializacion
                 lds #$3BFF
-                movb #$00,BCD1
-                movb #$00,BCD2
-                movb #$00,T_Read_RTC
-                movb #$00,T_Read_RTC+1
-                movb #$00,T_Read_RTC+2
+                clr BCD1
+                clr BCD2
+                clr T_Read_RTC
+                clr T_Read_RTC+1
+                clr T_Read_RTC+2
                 movb #02,LEDS
-                movb #0,DISP1
-                movb #0,DISP2
-                movb #0,DISP3
-                movb #0,DISP4
+                clr DISP1
+                clr DISP2
+                clr DISP3
+                clr DISP4
                 ;modser=1
                 movb #1,CONT_DIG
-                movb #0,CONT_TICKS
+                clr CONT_TICKS
                 movb #50, BRILLO
                 
-                movb #$00, CONT_REB
-                bclr BANDERAS,$07      ;Poner las banderas en 0 FIXME
-                bset BANDERAS,$18      ;Poner la bandera cambio nodo en 1 y modo en 1
+                clr  CONT_REB
+                bclr BANDERAS,$1F      ;Poner las banderas en 0 FIXME
+                ;bset BANDERAS,$00      ;Poner la bandera cambio nodo en 1 y modo en 1
                 
 
 
@@ -166,6 +166,8 @@ mLoop`          ldd ALARMA
                 bne mLoop`
                 cmpb T_Read_RTC+2       ;Se compara las horas de alarma con las de memoria
                 bne mLoop`
+                brset BANDERAS,$10,mLoop`       ;FIXME:Agregar esto a diagrama de flujos
+                bset BANDERAS,$10
                 movb #$30, TIOS
                 movb #$30, TIE
                 bra mLoop`
@@ -199,9 +201,12 @@ subrutinabcd`   pshb
                 movb B,X,1,Y+     ;muevo la parte alta de bcd a disp 1 o disp4
                 cpy #DISP3
                 beq loadBCD2`
-returnBCD_7SEG: brclr T_Read_RTC,$01,return`
-                bset DISP2,$01
-                bset DISP3,$01
+returnBCD_7SEG: brclr T_Read_RTC,$01,erasedots`
+                bset DISP2,$80
+                bset DISP3,$80
+                bra return`
+erasedots`      bclr DISP2,$80
+                bclr DISP3,$80          
 return`         rts
 
 
@@ -366,19 +371,28 @@ return_rrtc     inc Index_RTC
 ;################################################################################################################################################                
 
                 loc
-WRITE_RTC:      ;brset IBSR,$02,return_wrtc
+WRITE_RTC:      brset IBSR,$02,error_wrtc       ;No se recibe el ack
                 ldaa Index_RTC
                 bne next`
                 movb Dir_Seg,IBDR       ;Mandar la direccion de la primera palabra es decir segundos                
                 bra return_wrtc
-next`           deca                    ;offset de -1 porque se toma en cuenta el envio de la direccion
+next`           cmpa #7
+                beq finishwrite`
+                deca                    ;offset de -1 porque se toma en cuenta el envio de la direccion
                 ldx #T_WRITE_RTC
-                movb A,X,IBDR           ;Mandar el dato correspondiente segun el index
+                movb A,X,IBDR           ;Mandar el dato correspondiente segun el index 
                 cmpa #6                 ;Es el ultimo dato?
-                bne return_wrtc
-                bclr IBCR,$20        
+                bne return_wrtc         ;Cuano es el ultimo se envia señal de stop
+                bclr IBCR,$20                        
+                
+                bra return_wrtc
+                
+                
+finishwrite`    bset BANDERAS,$01
 return_wrtc:    inc Index_RTC
-                rts                
+                rts 
+error_wrtc:     movb #$FF,LEDS                  ;Enciende todos los leds como alarma
+                bra return_wrtc
 
 
 
@@ -413,15 +427,19 @@ PTH_ISR:        brset PIFH,$01,PH0_ISR
 ;Entrada:
 ;Salida:
 ;################################################################################################################################################
-PH0_ISR:        bset PIFH, $01                          
+PH0_ISR:        bset PIFH, $01  
+                
                 tst CONT_REB
-                bne returnPH                
+                bne returnPH                 
                 movb #2,CONT_REB
                 ;INICIO de comunicaciones en escritura
                 bclr BANDERAS,$80 ;MODOEscritura         
-                movb Dir_WR,IBDR
-                movb #$F0,IBCR                 ;IBEN 1, IBIE 1 MS 1(START), TX 1 txak 0(Para calling address no importa),RSTA 0
-                movb #$07,Index_RTC             ;Index en 7 porque es la cantidad de datos que se deben enviar
+                bclr BANDERAS,$10       ;Reset de alarma
+                movb #$F0,IBCR                 ;IBEN 1, IBIE 1 MS 1(START), TX 1 txak 0(Para calling address no importa),RSTA 0                
+                movb Dir_WR,IBDR               ;Se envia direccion de escritura                         
+                   
+                          
+                clr Index_RTC             ;Index en 0
                 bra returnPH
 
 ;       subrutina PH1
@@ -433,10 +451,10 @@ PH0_ISR:        bset PIFH, $01
 ;Entrada:
 ;Salida:
 ;################################################################################################################################################
-PH1_ISR:        bset PIFH, $02                          
+PH1_ISR:        bset PIFH, $02 
                 tst CONT_REB
                 bne returnPH                
-                movb #2,CONT_REB
+                movb #2,CONT_REB                         
                 movb #$10, TIOS
                 movb #$10, TIE      ;Se deshabilitan las interrupciones de OC5
 returnPH:       rti
@@ -493,11 +511,13 @@ checkREAD:      tst CONT_RTI        ;Se verifica que el contador llegue a 0 es d
                 dec CONT_RTI
                 bra return`
 initREAD:       movb #20,CONT_RTI   ;Reset contador
+                brclr BANDERAS,$01,return`                
                 ;INICIO de comunicaciones en LECTURA
                 bset BANDERAS,$80 ; MODOLectura         
                 movb Dir_WR,IBDR                ;Mando la direccion de escritura para resetear el puntero de memoria DS1307
-                movb #$F0,IBCR                 ;IBEN 1, IBIE 1 MS 1(START), TX 1 txak 0(Para calling address no importa),RSTA 0
-                movb #$00,Index_RTC             ;Index en 0
+                ;movb #$F0,IBCR                 ;IBEN 1, IBIE 1 MS 1(START), TX 1 txak 0(Para calling address no importa),RSTA 0
+                bset IBCR,$30
+                clr Index_RTC             ;Index en 0
 
 return`         rti
 
@@ -548,25 +568,19 @@ dig2`           cmpa #2
                 bne dig3`
                 bclr PTP, $04
                 ldaa DISP2
-                cmpa #$3F
-                beq ndig2`
                 movb DISP2, PORTB
                 bset PTJ, $02
 ndig2`          bra  incticks`
 dig3`           cmpa #3
                 bne dig4`
                 bclr PTP, $02                
-                brset BANDERAS,$08,ndig3`
                 movb DISP3, PORTB
                 bset PTJ, $02
 ndig3`          bra  incticks`
 dig4`           cmpa #4
                 bne digleds`
                 bclr PTP, $01
-                brset BANDERAS,$08,ndig4`
                 ldaa DISP4
-                cmpa #$3F
-                beq ndig4`
                 movb DISP4, PORTB
                 bset PTJ, $02
 ndig4`          jmp  incticks`
@@ -585,9 +599,9 @@ tst7seg`        ldx CONT_7SEG
 returnOC4       ldd TCNT
                 addd #60
                 std TC4
-                bset TFLG1,$10          ;Se borra la bandera manualmente
+                ;bset TFLG1,$10          ;Se borra la bandera manualmente ERROR
                 rti
-JBCD_7SEG`      movw #5000,CONT_7SEG
+JBCD_7SEG`      movw #500,CONT_7SEG
                 jsr BCD_7SEG
                 bra returnOC4
 
@@ -605,9 +619,8 @@ JBCD_7SEG`      movw #5000,CONT_7SEG
 ;################################################################################################################################################                
                 loc
 OC5_ISR:        ldd TCNT
-                addd #60
-                std TC5
-                bset TFLG1,$20          ;Se borra la bandera manualmente
+                addd #75
+                std TC5                
                 rti
 
 
@@ -626,9 +639,9 @@ OC5_ISR:        ldd TCNT
                 loc
 IIC_ISR:        bset IBSR,$20
                 brset BANDERAS,$80,jLectura
-                jsr READ_RTC
+                jsr WRITE_RTC     
                 bra return_IIC
-jLectura:       jsr WRITE_RTC
+jLectura:       jsr READ_RTC
 return_IIC:     rti
 
 
