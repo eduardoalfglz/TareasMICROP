@@ -140,7 +140,7 @@ MESS2:          fcc " DESPERTADOR 623"
                 clr T_Read_RTC
                 clr T_Read_RTC+1
                 clr T_Read_RTC+2
-                movb #02,LEDS
+                clr LEDS
                 clr DISP1
                 clr DISP2
                 clr DISP3
