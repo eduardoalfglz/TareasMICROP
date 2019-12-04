@@ -1325,6 +1325,6 @@ eeb2                    WriteMem equ    $EEB2   ; FAR call
 258f 16 22 49                           jsr BCD_7SEG
 2592 20 ed                              bra returnOC4
 
-Executed: Sat Nov 23 22:05:44 2019
+Executed: Wed Dec 04 13:39:35 2019
 Total cycles: 1558, Total bytes: 1519
 Total errors: 0, Total warnings: 0

@@ -106,7 +106,7 @@ TECLAS:         db $01,$02,$03,$04,$05,$06,$07,$08,$09,$0B,$00,$0E
 
  
                 org $1040
-SEGMENT:        db $3F,$06,$5B,$4F,$66,$6D,$7D,$07,$7F,$6F,$40,$BB  ;0,1,2,3,4,5,6,7,8,9,-,Apagar
+SEGMENT:        db $3F,$06,$5B,$4F,$66,$6D,$7D,$07,$7F,$6F,$40,$00  ;0,1,2,3,4,5,6,7,8,9,-,Apagar
                 
                 
                 
@@ -218,6 +218,7 @@ loopIATD:       dbne B,loopIATD         ;loop de retardo para encender el conver
                 clr BIN2
                 clr BIN1
                 movb #02,LEDS
+                movb #$80,LEDS37
                 clr DISP1
                 clr DISP2
                 clr DISP3
@@ -311,7 +312,7 @@ jmodolibre`     jsr MODO_LIBRE
 chkModoC`       brclr BANDERAS,$01,jmodoconfig`
                 bclr BANDERAS,$01                                  
                 movb V_LIM,BIN1             ;Si esta en modo config se revisa si hay cambio de modo para imprimir en la LCD
-                movb #$BB,BIN2               
+                movb #88,BIN2               
                 ldx #MESS1
                 ldy #MESS2
                 movb #$01,LEDS
@@ -504,13 +505,13 @@ OC4_ISR:        ldaa CONT_TICKS
 checkN`         cmpa #100           ;Si es 100 se debe encender un digito
                 beq changeDigit`
 incticks`       inc CONT_TICKS
-                jmp part2`
+                lbra part2`
 ;Apagar
 apagar`         movb #$FF,PTP
-                movb #$0, PORTB
+                clr PORTB
                 bra checkN`
 ;           cambiar digito
-changeDigit`    movb #$0, CONT_TICKS            ;Reset de contador
+changeDigit`    clr CONT_TICKS            ;Reset de contador
                 inc CONT_DIG
                 ldaa #6
                 cmpa CONT_DIG
@@ -521,9 +522,9 @@ jpart2`         bra part2`
 check_digit`    ldaa CONT_DIG               ;Se verifica cual digito se debe configurar
                 cmpa #1
                 bne dig2`
-                ldaa DISP1
-                cmpa #$BB                   ;Si el valor en disp es BB el digito no se enciende
-                beq incticks`
+                ;ldaa DISP1
+                ;cmpa #$BB                   ;Si el valor en disp es BB el digito no se enciende
+                ;beq incticks`
                 bclr PTP, $08
                 movb DISP1, PORTB
                 bset PTJ, $02
@@ -531,30 +532,30 @@ ndig1`          bra  incticks`
 dig2`           cmpa #2                     ;Se repite el mismo proceso para los otros digitos
                 bne dig3`
                 bclr PTP, $04
-                ldaa DISP2
-                cmpa #$BB
-                beq incticks`
+                ;ldaa DISP2
+                ;cmpa #$BB
+                ;beq incticks`
                 movb DISP2, PORTB
                 bset PTJ, $02
 ndig2`          bra  incticks`
 dig3`           cmpa #3
                 bne dig4`
-                ldaa DISP3
-                cmpa #$BB
-                beq ndig3`
+                ;ldaa DISP3
+                ;cmpa #$BB
+                ;beq ndig3`
                 bclr PTP, $02                                
                 movb DISP3, PORTB
                 bset PTJ, $02
 ndig3`          bra  incticks`
 dig4`           cmpa #4
                 bne digleds`                                          
-                ldaa DISP4
-                cmpa #$BB
-                beq ndig4`
+                ;ldaa DISP4
+                ;cmpa #$BB
+                ;beq ndig4`
                 bclr PTP, $01  
                 movb DISP4, PORTB
                 bset PTJ, $02
-ndig4`          jmp  incticks`
+ndig4`          lbra  incticks`
 digleds`        movb LEDS, PORTB
                 bclr PTJ, $02
                 inc CONT_TICKS
@@ -572,7 +573,7 @@ tst200`         ldx CONT_200
                 dex
                 stx CONT_200
                 bra returnOC4 
-enableATDLEDs`  movw #1000,CONT_200         ;Reseteo de contador
+enableATDLEDs`  movw #10000,CONT_200         ;Reseteo de contador
                 movb #$87, ATD0CTL5         ;Convertidor atd
                 jsr PATRON_LEDS             ;Leds de alarma
 returnOC4       jsr CONV_BIN_BCD
