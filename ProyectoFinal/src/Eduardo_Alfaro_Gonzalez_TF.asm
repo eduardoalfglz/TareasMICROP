@@ -173,8 +173,10 @@ MESS8:          fcc "  CALCULANDO..."
                 movb #$80, TSCR1        ;Habilita el modulo sin tffca
                 movb #$03, TSCR2        ;Prescaler de 8
                 movb #$10, TIOS         ;Habilita la salida del oc4
-                movb #$01, TCTL1        ;Salida de oc4 en toggle
+                movb #$00, TCTL1        ;Salida de oc4 en toggle
                 clr TCTL2
+                movb #$FF,TFLG2 ; 
+                movb #$FF,TFLG1 ;                
                 movb #$10, TIE          ;Habilita la interrupcion de oc4
                 ldd TCNT
                 addd #60
@@ -494,7 +496,35 @@ return`         rti
         ;CONT_DELAY: contador de retraso para contador de pantalla de 7 segmentos
 ;################################################################################################################################################
                 loc
-OC4_ISR:        ldaa CONT_TICKS
+OC4_ISR:        ldd TCNT
+                addd #60
+                std TC4
+                movb #$FF,TFLG1         ;Se hace borrado manual para evitar conflictos con TCNT
+                tst CONT_DELAY          ;Segunda parte de OC4, encargada de manejar cont_delay, cont_200 y la subrutina bcd_7seg
+                beq tst7seg`
+                dec CONT_DELAY
+tst7seg`        ldx CONT_7SEG           ;cuando el contador de 7seg es 0 se debe llamar a la subrutina y configurar el contador en 5000
+                beq JBCD_7SEG`
+                dex
+                stx CONT_7SEG
+                bra tst200`
+JBCD_7SEG`      movw #5000,CONT_7SEG
+                jsr BCD_7SEG  
+                jsr CONV_BIN_BCD              
+tst200`         ldx CONT_200
+                beq enableATDLEDs`
+                dex
+                stx CONT_200
+                bra part2` 
+
+enableATDLEDs`  movw #10000,CONT_200         ;Reseteo de contador
+                movb #$87, ATD0CTL5         ;Convertidor atd
+                jsr PATRON_LEDS             ;Leds de alarma
+          
+               
+
+;               Aqui comienza el manejo de la pantalla        
+part2`          ldaa CONT_TICKS
                 ldab DT
 
                 cba
@@ -504,7 +534,7 @@ OC4_ISR:        ldaa CONT_TICKS
 checkN`         cmpa #100           ;Si es 100 se debe encender un digito
                 beq changeDigit`
 incticks`       inc CONT_TICKS
-                bra part2`
+                bra returnOC4`
 ;Apagar
 apagar`         movb #$FF,PTP
                 bclr PTJ, $02
@@ -515,7 +545,7 @@ changeDigit`    clr CONT_TICKS            ;Reset de contador
                 inc CONT_DIG
                 ldaa #5
                 cmpa CONT_DIG
-                bne part2`                 
+                bne returnOC4`                 
                 clr CONT_DIG                    ;Reset del contador de digito
 ;           encender digito
 check_digit`    ldaa CONT_DIG               ;Se verifica cual digito se debe configurar 
@@ -526,47 +556,31 @@ check_digit`    ldaa CONT_DIG               ;Se verifica cual digito se debe con
                 cmpa #0
                 bne dig2`                
                 movb #$07,PTP
-ndig1`          bra  incticks`
+ndig1`          inc CONT_TICKS
+                bra returnOC4`
 dig2`           cmpa #1                     ;Se repite el mismo proceso para los otros digitos
                 bne dig3`
                 movb #$0B,PTP                                
-ndig2`          bra  incticks`
+ndig2`          inc CONT_TICKS
+                bra returnOC4`
 dig3`           cmpa #2
                 bne dig4`                
                 movb #$0D,PTP                                                
-ndig3`          bra  incticks`
+ndig3`          inc CONT_TICKS
+                bra returnOC4`
 dig4`           cmpa #3
                 bne digleds`                                          
                 movb #$0E,PTP  
-ndig4`          bra  incticks`
+ndig4`          inc CONT_TICKS
+                bra returnOC4`
 digleds`        bclr PTJ, $02
                 inc CONT_TICKS
 
 
-part2`          tst CONT_DELAY          ;Segunda parte de OC4, encargada de manejar cont_delay, cont_200 y la subrutina bcd_7seg
-                beq tst7seg`
-                dec CONT_DELAY
-tst7seg`        ldx CONT_7SEG           ;cuando el contador de 7seg es 0 se debe llamar a la subrutina y configurar el contador en 5000
-                beq JBCD_7SEG`
-                dex
-                stx CONT_7SEG
-tst200`         ldx CONT_200
-                beq enableATDLEDs`
-                dex
-                stx CONT_200
-                bra returnOC4 
-enableATDLEDs`  movw #10000,CONT_200         ;Reseteo de contador
-                movb #$87, ATD0CTL5         ;Convertidor atd
-                jsr PATRON_LEDS             ;Leds de alarma
-returnOC4       jsr CONV_BIN_BCD
-                ldd TCNT
-                addd #60
-                std TC4
-                movb #$FF,TFLG1         ;Se hace borrado manual para evitar conflictos con TCNT
+returnOC4`      
                 rti
-JBCD_7SEG`      movw #499,CONT_7SEG
-                jsr BCD_7SEG
-                bra tst200`
+
+
 
 
 
@@ -623,7 +637,9 @@ ATD_ISR:        loc
         ;TICK_DIS: Ticks necesarios para eliminar la velocidad el medidor, se decrementan
 ;################################################################################################################################################
                 loc
-TCNT_ISR:       ldaa TICK_VEL               
+TCNT_ISR:       ldd TCNT
+                movb #$FF,TFLG2 ;                
+                ldaa TICK_VEL               
                 cmpa #255                   ; si esta en valor maximo se mantiene ahi, esto resulta en una velocidad invalida
                 beq next1`
                 brclr BANDERAS,$08,next1`      ;Revisa la bandera que habilita el conteo de ticks
@@ -642,8 +658,7 @@ storeX1`        stx TICK_EN
                 ;movw #$FFFF,TICK_DIS
                 bclr (BANDERAS+1),$08 
 storeX2`        stx TICK_DIS
-returnTCNT`     movb #$FF,TFLG2 ;
-                rti
+returnTCNT`     rti
 ;################################################################################################################################################
 ;################################################################################################################################################
 ;################################################################################################################################################
@@ -1215,12 +1230,12 @@ returnPC`       rts
 PATRON_LEDS:    brset (BANDERAS+1),$10,activateAl`         ;Se revisa si la alarma está activada
                 bclr LEDS,$F8
                 bra returnPL`
-activateAl`     ldaa #$80
+activateAl`     ldaa #$08
                 cmpa LEDS37                 ;Se revisa que no este en el ultimo led
                 beq resLEDS37`
-                lsl LEDS37          ;Si no esta en el ultimo led se realiza un desplazamiento
+                lsr LEDS37          ;Si no esta en el ultimo led se realiza un desplazamiento
                 bra chLEDS`
-resLEDS37`      movb #$08,LEDS37        ;Si es igual se devuelve al primer led
+resLEDS37`      movb #$80,LEDS37        ;Si es igual se devuelve al primer led
 chLEDS`         ldaa LEDS37
                 adda #2             ;Se le suma 2 para encender el led de modo medicion
                 staa LEDS                   
