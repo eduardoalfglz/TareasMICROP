@@ -100,7 +100,7 @@ Variable3:      ds 1
 
 
                 org $1030
-TECLAS:         db $01,$02,$03,$04,$05,$06,$07,$08,$09,$0B,$00,$0E
+TECLAS:         db $01,$04,$07,$02,$05,$08,$03,$06,$09,$0B,$00,$0E
 
 
 
@@ -296,7 +296,7 @@ chkModoLC:      clr VELOC
                 bclr PIEH,$09                       ;Se deshabilitan las interrupciones del puerto H, TOI y se pone veloc en 0
                 bset PIFH,$09
                 movb #$03,TSCR2
-                bclr (BANDERAS+1),$18                  ;Se borra la bandera de alerta y la bandera de PANT_FLAG
+                bclr (BANDERAS+1),$18                  ;FIXME:Se borra la bandera de alerta y la bandera de PANT_FLAG
                 brclr BANDERAS,$C0,chkModoC`       ;Salta a revisar el modo Config
 
 
@@ -312,7 +312,7 @@ jmodolibre`     jsr MODO_LIBRE
 chkModoC`       brclr BANDERAS,$01,jmodoconfig`
                 bclr BANDERAS,$01                                  
                 movb V_LIM,BIN1             ;Si esta en modo config se revisa si hay cambio de modo para imprimir en la LCD
-                movb #88,BIN2               
+                movb #$BB,BIN2               ;88 para pruebas
                 ldx #MESS1
                 ldy #MESS2
                 movb #$01,LEDS
@@ -386,8 +386,7 @@ PH0_ISR:        ;bset PORTB,$04
                 tst CONT_REB
                 bne returnPH 
                 movb #100,CONT_REB          ;Si el contador de rebotes es distinto de 0 se ejecuta el Calculo
-                ldab TICK_VEL            ;Se revisa que tick_Vel sea diferente de cero
-                ;movb #88,BIN2          
+                ldab TICK_VEL            ;Se revisa que tick_Vel sea diferente de cero         
                 beq returnPH
                 bclr BANDERAS,$08      
                 cmpb #26                ;26 es el numero minimo de ticks si es menor el resultado de la velocidad es mayor a 255 y se desborda           
@@ -505,59 +504,42 @@ OC4_ISR:        ldaa CONT_TICKS
 checkN`         cmpa #100           ;Si es 100 se debe encender un digito
                 beq changeDigit`
 incticks`       inc CONT_TICKS
-                lbra part2`
+                bra part2`
 ;Apagar
 apagar`         movb #$FF,PTP
+                bclr PTJ, $02
                 clr PORTB
                 bra checkN`
 ;           cambiar digito
 changeDigit`    clr CONT_TICKS            ;Reset de contador
                 inc CONT_DIG
-                ldaa #6
+                ldaa #5
                 cmpa CONT_DIG
-                bne jpart2`                 ;no me alcanzo para hacer el primer salto 
-                movb #1,CONT_DIG
-jpart2`         bra part2`
+                bne part2`                 
+                clr CONT_DIG                    ;Reset del contador de digito
 ;           encender digito
-check_digit`    ldaa CONT_DIG               ;Se verifica cual digito se debe configurar
-                cmpa #1
-                bne dig2`
-                ;ldaa DISP1
-                ;cmpa #$BB                   ;Si el valor en disp es BB el digito no se enciende
-                ;beq incticks`
-                bclr PTP, $08
-                movb DISP1, PORTB
+check_digit`    ldaa CONT_DIG               ;Se verifica cual digito se debe configurar 
+
+                ldx #DISP1
+                movb A,X,PORTB                  ;Direcciona el valor por direccionamiento indexado
                 bset PTJ, $02
+                cmpa #0
+                bne dig2`                
+                movb #$07,PTP
 ndig1`          bra  incticks`
-dig2`           cmpa #2                     ;Se repite el mismo proceso para los otros digitos
+dig2`           cmpa #1                     ;Se repite el mismo proceso para los otros digitos
                 bne dig3`
-                bclr PTP, $04
-                ;ldaa DISP2
-                ;cmpa #$BB
-                ;beq incticks`
-                movb DISP2, PORTB
-                bset PTJ, $02
+                movb #$0B,PTP                                
 ndig2`          bra  incticks`
-dig3`           cmpa #3
-                bne dig4`
-                ;ldaa DISP3
-                ;cmpa #$BB
-                ;beq ndig3`
-                bclr PTP, $02                                
-                movb DISP3, PORTB
-                bset PTJ, $02
+dig3`           cmpa #2
+                bne dig4`                
+                movb #$0D,PTP                                                
 ndig3`          bra  incticks`
-dig4`           cmpa #4
+dig4`           cmpa #3
                 bne digleds`                                          
-                ;ldaa DISP4
-                ;cmpa #$BB
-                ;beq ndig4`
-                bclr PTP, $01  
-                movb DISP4, PORTB
-                bset PTJ, $02
-ndig4`          lbra  incticks`
-digleds`        movb LEDS, PORTB
-                bclr PTJ, $02
+                movb #$0E,PTP  
+ndig4`          bra  incticks`
+digleds`        bclr PTJ, $02
                 inc CONT_TICKS
 
 
@@ -582,7 +564,7 @@ returnOC4       jsr CONV_BIN_BCD
                 std TC4
                 movb #$FF,TFLG1         ;Se hace borrado manual para evitar conflictos con TCNT
                 rti
-JBCD_7SEG`      movw #5000,CONT_7SEG
+JBCD_7SEG`      movw #499,CONT_7SEG
                 jsr BCD_7SEG
                 bra tst200`
 
@@ -1241,5 +1223,5 @@ activateAl`     ldaa #$80
 resLEDS37`      movb #$08,LEDS37        ;Si es igual se devuelve al primer led
 chLEDS`         ldaa LEDS37
                 adda #2             ;Se le suma 2 para encender el led de modo medicion
-                staa LEDS   
+                staa LEDS                   
 returnPL`       rts                             
